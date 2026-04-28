@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a1612">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GeoQuiz">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<title>GeoQuiz Europa</title>
+<style>
+@font-face {
+  font-family: 'Quiz';
+  src: local('Georgia'), local('Times New Roman'), local('serif');
+}
+:root {
+  --bg: #0f1923;
+  --card: #1a2836;
+  --card2: #223344;
+  --accent: #e8b84b;
+  --accent2: #d4943a;
+  --green: #4ec97a;
+  --red: #e85555;
+  --text: #e8e4dc;
+  --text2: #9aa8b8;
+  --border: #2a3e52;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+body::before {
+  content:'';
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  background: radial-gradient(ellipse at 20% 20%, rgba(232,184,75,0.06) 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 80%, rgba(78,201,122,0.04) 0%, transparent 50%);
+  pointer-events:none; z-index:0;
+}
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  position: relative;
+  z-index: 1;
+}
+h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 900;
+  font-size: 2.8rem;
+  text-align: center;
+  margin: 30px 0 10px;
+  background: linear-gradient(135deg, var(--accent), #f0d080);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 1px;
+}
+.subtitle {
+  text-align: center;
+  color: var(--text2);
+  font-size: 1.1rem;
+  font-weight: 300;
+  margin-bottom: 40px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.compass {
+  text-align: center;
+  font-size: 3rem;
+  margin-bottom: 10px;
+  animation: spin 20s linear infinite;
+}
+@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+.mode-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-top: 30px;
+}
+.mode-btn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 30px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.mode-btn:hover {
+  background: var(--card2);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(232,184,75,0.15);
+}
+.mode-icon {
+  font-size: 2.4rem;
+  width: 60px; height: 60px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(232,184,75,0.1);
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+.mode-title {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.mode-desc { color: var(--text2); font-size: 0.9rem; margin-top: 4px; }
+.question-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;
+}
+.q-counter {
+  font-family: Georgia, serif;
+  font-size: 1rem; color: var(--accent);
+  background: rgba(232,184,75,0.1);
+  padding: 6px 16px; border-radius: 20px;
+}
+.q-score { color: var(--text2); font-size: 0.9rem; }
+.q-text {
+  font-family: Georgia, serif;
+  font-size: 1.6rem; font-weight: 700;
+  text-align: center; margin-bottom: 30px; line-height: 1.4;
+}
+.q-text span { color: var(--accent); }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.option-btn {
+  background: var(--card); border: 2px solid var(--border);
+  border-radius: 12px; padding: 18px 20px; color: var(--text);
+  font-size: 1.05rem; font-family: 'Segoe UI', Tahoma, sans-serif;
+  cursor: pointer; transition: all 0.25s ease; text-align: center;
+}
+.option-btn:hover:not(.disabled) { border-color: var(--accent); background: var(--card2); }
+.option-btn.correct { border-color: var(--green); background: rgba(78,201,122,0.15); color: var(--green); }
+.option-btn.wrong { border-color: var(--red); background: rgba(232,85,85,0.15); color: var(--red); }
+.option-btn.disabled { cursor: default; opacity: 0.6; }
+.map-container {
+  position: relative; width: 100%;
+  border-radius: 12px; overflow: hidden; border: 2px solid var(--border); margin-top: 10px;
+  background: #f5f1e8;
+  padding: 8px;
+}
+.map-container svg { width: 100%; height: auto; display: block; }
+/* SVG country styles - adapted for our dark theme */
+.map-container .country { fill: #fafaf6; stroke: #6b6358; stroke-width: 1.0; cursor: crosshair; transition: fill 0.15s; }
+.map-container .country:hover { fill: rgba(232,184,75,0.5); }
+.map-container .country.correct { fill: rgba(78,201,122,0.65); stroke: #2e8a4f; stroke-width: 1.4; }
+.map-container .country.wrong { fill: rgba(232,85,85,0.65); stroke: #b03030; stroke-width: 1.4; }
+.map-container .country.hint { fill: rgba(232,184,75,0.7); stroke: #b08020; stroke-width: 1.4; }
+/* Disable hover effect on already-answered countries */
+.map-container.answered .country { cursor: default; }
+.map-container.answered .country:hover { fill: #fafaf6; }
+.map-container.answered .country.correct:hover { fill: rgba(78,201,122,0.65); }
+.map-container.answered .country.wrong:hover { fill: rgba(232,85,85,0.65); }
+.map-container.answered .country.hint:hover { fill: rgba(232,184,75,0.7); }
+.results-list { margin-top: 20px; }
+.result-item {
+  display: flex; align-items: center; gap: 14px; padding: 14px 18px;
+  background: var(--card); border-radius: 12px; margin-bottom: 10px; border-left: 4px solid;
+}
+.result-item.correct { border-left-color: var(--green); }
+.result-item.wrong { border-left-color: var(--red); }
+.result-icon { font-size: 1.4rem; }
+.result-text { flex: 1; }
+.result-text .wrong-answer { color: var(--red); text-decoration: line-through; margin-right: 8px; }
+.result-text .correct-answer { color: var(--green); }
+.result-text .question-label { color: var(--text2); font-size: 0.85rem; }
+.score-display { text-align: center; margin: 30px 0; }
+.score-big { font-family: Georgia, serif; font-size: 4rem; font-weight: 900; }
+.score-big .good { color: var(--green); }
+.score-big .sep { color: var(--text2); }
+.score-label { color: var(--text2); font-size: 1.1rem; margin-top: 4px; }
+.btn {
+  display: inline-block; padding: 14px 32px; border-radius: 12px;
+  font-size: 1rem; font-weight: 600; font-family: 'Segoe UI', Tahoma, sans-serif;
+  cursor: pointer; border: none; transition: all 0.25s;
+}
+.btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #1a1a1a; }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(232,184,75,0.3); }
+.btn-secondary { background: var(--card2); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--accent); }
+.btn-row { display: flex; gap: 12px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }
+.progress-bar { width:100%; height:6px; background:var(--card); border-radius:3px; margin-bottom:20px; overflow:hidden; }
+.progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--green)); border-radius:3px; transition:width 0.4s ease; }
+.fade-in { animation: fadeIn 0.4s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+.summary-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin: 20px 0; }
+.stat-card { background: var(--card); border-radius: 14px; padding: 20px; text-align: center; }
+.stat-number { font-family: Georgia, serif; font-size: 2.5rem; font-weight: 900; }
+.stat-label { color: var(--text2); font-size: 0.85rem; margin-top: 4px; }
+.next-btn-area { text-align: center; margin-top: 20px; }
+.abort-row { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px dashed var(--border); }
+.btn-abort {
+  background: transparent;
+  color: var(--text2);
+  border: 1px solid var(--border);
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  transition: all 0.2s;
+}
+.btn-abort:hover { color: var(--red); border-color: var(--red); }
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  .container { padding: 18px 16px; border-radius: 14px; }
+  h1 { font-size: 1.8rem; }
+  .subtitle { font-size: 1rem; }
+  .options-grid { grid-template-columns: 1fr; gap: 10px; }
+  .option-btn { padding: 16px 18px; font-size: 1.05rem; min-height: 56px; }
+  .q-text { font-size: 1.2rem; }
+  .summary-stats { grid-template-columns: 1fr; gap: 10px; }
+  .stat-card { padding: 14px; }
+  .score-big { font-size: 2.6rem; }
+  .score-display { padding: 18px; }
+  .mode-btn { padding: 18px 16px; }
+  .mode-icon { font-size: 2.2rem; }
+  .mode-title { font-size: 1.15rem; }
+  .btn-primary, .btn-secondary { padding: 14px 22px; font-size: 1rem; min-height: 50px; }
+  .btn-row { flex-direction: column; gap: 10px; }
+  .compass { font-size: 2.6rem; }
+  .question-header { flex-wrap: wrap; gap: 6px; }
+  .results-list { margin-top: 14px; }
+  .result-item { padding: 12px 14px; gap: 10px; }
+}
+
+/* Touch device tweaks: disable hover-based highlights that "stick" after tap */
+@media (hover: none) {
+  .map-container .country:hover { fill: #fafaf6; }
+  .map-container .country.correct:hover { fill: rgba(78,201,122,0.65); }
+  .map-container .country.wrong:hover { fill: rgba(232,85,85,0.65); }
+  .map-container .country.hint:hover { fill: rgba(232,184,75,0.7); }
+  .option-btn:hover:not(.disabled) { border-color: var(--border); background: var(--card); }
+  .mode-btn:hover { transform: none; box-shadow: none; }
+  .btn-primary:hover { transform: none; box-shadow: 0 4px 12px rgba(232,184,75,0.2); }
+}
+
+/* Prevent iOS text-size auto-adjust */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* Disable double-tap zoom delay on buttons */
+button, .mode-btn, .option-btn, .country { touch-action: manipulation; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+
+// SVG map of Europe with proper country borders.
+// Source: https://github.com/flekschas/simple-world-map (CC BY-SA 3.0)
+// Author: Al MacDonald, Editor: Fritz Lekschas. Cropped to Europe.
+// Each country is a <path> with data-iso (ISO 3166-1 alpha-2) and data-name attributes.
+var MAP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="355 240 185 220" preserveAspectRatio="xMidYMid meet">\n  <style>\n    .country { fill: transparent; stroke: #888; stroke-width: 0.4; cursor: crosshair; }\n    .country:hover { fill: rgba(232,184,75,0.18); }\n    .country.correct { fill: rgba(78,201,122,0.4); stroke: #4ec97a; stroke-width:0.7; }\n    .country.wrong { fill: rgba(232,85,85,0.4); stroke: #e85555; stroke-width:0.7; }\n    .country.hint { fill: rgba(232,184,75,0.4); stroke: #e8b84b; stroke-width:0.7; }\n  </style>\n  <path class="country" data-iso="al" data-name="Albania" d="M450.679,420.438v3.984l1.142,2.152l0.82-0.096l1.409-2.566l-0.821-1.15l-0.319-2.844l-1.089-1.012L450.679,420.438L450.679,420.438z"/>\n  <path class="country" data-iso="at" data-name="Austria" d="M430.46,403.459l-0.562,1.167l0.483,0.83l2.015-0.415h1.711l1.857,1.572l3.95-0.717l2.904-1.729l0.743-1.167l-0.112-1.504l-2.611-1.954l-3.501,0.035l-0.294,1.988l-3.683,1.797L430.46,403.459L430.46,403.459z"/>\n  <path class="country" data-iso="be" data-name="Belgia" d="M414.019,391.704l-0.554,1.383l5.947,3.925l0.4,0.051l0.375-1.094l0.837-0.588l-1.336-1.499h-0.916l-1.255-1.426L414.019,391.704L414.019,391.704z"/>\n  <path class="country" data-iso="by" data-name="Białoruś" d="M456.418,382.861l1.297,2.135l-0.519,1.703l0.086,1.349l0.476,1.616l2.68-1.521l3.329,0.086l2.334,0.959h5.922l1.729-4.141l1.037-1.564v-1.045l-3.717-5.23l-3.285-1.305l-2.68-0.303l-2.335,0.743l0.088,2.351l-3.241,4.098L456.418,382.861L456.418,382.861z"/>\n  <path class="country" data-iso="ba" data-name="Bośnia i Hercegowina" d="M442.708,411.084l-0.319,0.527l5.801,5.981l2.127-3.13l-0.078-1.234l-1.857-2.256L442.708,411.084L442.708,411.084z"/>\n  <path class="country" data-iso="bg" data-name="Bułgaria" d="M457.092,414.066l0.139,4.305l1.452,3.025l5.454,0.095l2.455-1.737l2.412-0.959l-0.588-2.75l0.545-1.469l-1.228-0.641l-1.687,0.139l-1.323,1.332l-5.549,0.043L457.092,414.066L457.092,414.066z"/>\n  <path class="country" data-iso="hr" data-name="Chorwacja" d="M443.417,407.816l-3.051,2.515h-3.095l-0.372,2.178l1.418,0.372l0.709-1.055l1.114,0.977l0.891,3.112l6.109,2.853l0.605-0.691l-6.197-6.396l0.631-1.166l5.888-0.226l0.596-1.876l-3.838,0.111L443.417,407.816L443.417,407.816z"/>\n  <path class="country" data-iso="me" data-name="Czarnogóra" d="M449.68,416.677l-1.266,1.789l0.362,1.099l1.504,0.275l1.184-1.607L449.68,416.677z"/>\n  <path class="country" data-iso="cz" data-name="Czechy" d="M437.202,398.921h2.567h1.263l2.049,1.461l3.795-3.155l-3.683-2.627l-3.648-1.765l-2.498,0.45l-3.389,2.178L437.202,398.921L437.202,398.921z"/>\n  <path class="country" data-iso="dk" data-name="Dania" d="M427.123,370.076l-3.586,3.968l-0.13,2.584l1.635,4.263l2.559-0.484l-0.319-3.483l1.764-1.971l-0.034-1.548l-1.245-3.223L427.123,370.076L427.123,370.076z M428.979,377.354l-1.062,0.229v1.583l1.128,0.875l0.997-0.25l-0.243-1.503L428.979,377.354z M432.306,375.848l-0.949,0.23l-1.056,0.968l0.448,1.954l1.292,0.507l-1.334,0.535l-0.255,0.685h2.005l0.602-1.099l-0.768-0.378l0.25-0.962l0.916-1.205l-0.25-1.042L432.306,375.848z"/>\n  <path class="country" data-iso="ee" data-name="Estonia" d="M462.562,363.299l-4.84-0.173l-3.068,1.875l-0.043,1.392l1.987,1.875l6.182,1.047L462.562,363.299L462.562,363.299z M452.236,364.042l-1.308,0.44l1.308,0.226l0.595,0.69l0.711-0.852l-0.709-1.215L452.236,364.042z M452.792,365.792l-1.862,0.833l-0.643,1.111l0.643,0.722l2.362-0.875l1.137-0.752L452.792,365.792z"/>\n  <path class="country" data-iso="fi" data-name="Finlandia" d="M453.072,340.202l1.79,0.786l1.104,2.074l-1.104,1.436l-5.55,6.068l-0.952,3.199l1.271,4.633l4.278,3.199l5.706-2.715l4.598-0.64l4.279-6.872l-3.173-7.512l-3.018-7.192l0.477-4.633l-1.901-0.32l-0.492-3.38l-2.559-4.175l-2.836,1.962l-1.114,4.556l-3.008-1.807l-4.185-1.021l-0.934,1.09l1.607,1.453l2.931-0.053l2.359,3.812L453.072,340.202L453.072,340.202z"/>\n  <path class="country" data-iso="fr" data-name="Francja" d="M412.973,393.588l-1.91,0.467l-3.82,4.158l-1.149,0.078l-1.53-1.081l-0.993,0.233l-0.762,2.386l-5.584,0.155l0.156,1.236l3.82,2.543l4.435,3.543l-0.077,4.236l-2.368,4.157l5.126,2.464l5.204,0.154l1.606-1.85l3.286,0.078l0.916,0.848l3.285-0.233l1.686-2.162l-2.145-2.541l-0.155-1.616l0.458-1.771l-1.071-1.539l-1.833,0.535l-0.232-1.383l4.054-4.469v-2.697l-2.348-0.767l-1.432-0.987L412.973,393.588L412.973,393.588z M276.163,517.285l5.058,3.154l-2.646,5.255l-0.959,1.21l-2.809-1.615l0.079-5.663L276.163,517.285L276.163,517.285z M540.023,586.93l-1.972,0.129l-0.129,1.722l1.313,0.269l1.972-0.925L540.023,586.93L540.023,586.93z M516.857,562.666l0.656,1.461h1.055l0.526-1.857L516.857,562.666L516.857,562.666z M258.823,489.822l-0.917,0.847l0.683,1.383l1.296-0.38L258.823,489.822L258.823,489.822z M428.039,418.016l-1.687,1.695l-0.154,1.538l1.374,0.847l0.536-0.076l0.303-2.24L428.039,418.016L428.039,418.016z M254.095,484.065l-1.296,0.535l0.458,1.149l1.521-0.994l-0.303-0.311L254.095,484.065L254.095,484.065z"/>\n  <path class="country" data-iso="gr" data-name="Grecja" d="M453.004,427.213l-0.096,1.15l4.003,2.014l1.911,0.734l-1.003,1.055l-2.23,0.227l-0.319,1.01l0.771,1.738l2.498,1.33l1.09,0.096l0.138-2.981l1.635-1.972l-4.46-5.272l0.589-1.789l1.046-0.043l1.591,1.279l1.002-0.501l0.319-1.79l3.732,0.534l1.134-3.239l-1.953,1.375l-5.731-0.14l-3.726,1.929L453.004,427.213L453.004,427.213z M461.69,438.442l1.408,0.043l0.589,0.873h2.05l1.363-0.501l0.459,0.553l-0.907,1.192l-4.002,0.139l-0.728-0.959l-0.77-0.458L461.69,438.442L461.69,438.442z"/>\n  <path class="country" data-iso="es" data-name="Hiszpania" d="M402.565,416.322h-11.014l-2.222-1.004l-1.071,0.078l-1.297,2.696l0.458,2.775l4.21,0.389l0.536,1.771l-1.833,10.33l0.078,1.851l2.981,1.617l3.439,0.232l6.881-1.694l3.363-4.233l0.077-4.313l5.965-5.395l0.302-2.386l-5.428-0.078L402.565,416.322L402.565,416.322z M374.265,458.444l-1.513,0.873l0.7,0.709L374.265,458.444L374.265,458.444z M369.009,458.608l-1.875,0.476l0.935,1.418h1.407L369.009,458.608L369.009,458.608z M364.549,457.191l-1.176,1.184l1.643,1.418l0.935-2.126L364.549,457.191L364.549,457.191z M413.578,426.877l-1.375,0.467l0.304,1.235h1.988l0.839-0.925L413.578,426.877L413.578,426.877z"/>\n  <path class="country" data-iso="nl" data-name="Holandia" d="M421.349,384.572l-3.915,1.928l0.829,0.752l0.088,1.928l-0.829-0.164l-0.917-1.426l-2.188,3.467l3.363,0.699l1.253,1.323l0.666,0.017l0.44-2.99l2.117-0.891L421.349,384.572L421.349,384.572z"/>\n  <path class="country" data-iso="ie" data-name="Irlandia" d="M394.915,383.085l-0.786,5.187l-6.975,2.56h-2.223l-1.582-1.115v-0.96l3.492-2.238l-0.951-1.92l0.156-2.714l3.018,0.155l1.383-3.25l-0.183,2.887l2.344,1.858L394.915,383.085L394.915,383.085z"/>\n  <path class="country" data-iso="is" data-name="Islandia" d="M366.261,340.521l-1.693-0.959l-2.283,1.443l-1.962,1.814l0.052,1.013l2.541,0.319l-0.156,1.815l-0.898,0.908l0.217,0.588l2.541,0.164v2.938l3.656,0.641l2.17,1.229l2.437,0.104l4.186-2.083l3.231-4.271l0.053-2.887l-1.963-1.66l-1.642-1.392l-0.743,0.536l-1.115,1.443l-1.271-0.164l-1.271-1.393l-1.642,0.156l-2.386,1.979l-1.437,1.547l-0.795-0.69l-0.053-1.712l0.795-0.536L366.261,340.521L366.261,340.521z"/>\n  <path class="country" data-iso="lt" data-name="Litwa" d="M452.14,375.236l-2.146,0.363l0.173,2.025l3.355,0.25l1.27,1.042l0.333,1.81l1.034,1.443l3.069-0.13l2.938-3.743l-0.172-2.222l-5.533-0.867L452.14,375.236z"/>\n  <path class="country" data-iso="lu" data-name="Luksemburg" d="M420.424,397.582l0.76,0.679l0.88,0.083l0.194-1.734l-0.253-0.974l-1.224,0.583L420.424,397.582z"/>\n  <path class="country" data-iso="lv" data-name="Łotwa" d="M462.823,369.964l-6.362-1.037l-1.086,2.823l-1.833,0.548l-0.959-1.173l-0.962-1.811l-1.038,0.762l-0.589,3.132v1.708l2.242-0.375l4.665,0.083l5.617,1.044l2.249-0.657l-0.13-2.524L462.823,369.964L462.823,369.964z"/>\n  <path class="country" data-iso="mk" data-name="Macedonia Północna" d="M456.643,418.924l-2.912,0.959l0.139,2.473l0.683,0.873l3.458-1.606L456.643,418.924L456.643,418.924z"/>\n  <path class="country" data-iso="mt" data-name="Malta" d="M440.815,438.339l-1.443,0.294l0.052,1.6l1.297,0.433l0.579-0.484L440.815,438.339L440.815,438.339z"/>\n  <path class="country" data-iso="md" data-name="Mołdawia" d="M465.14,401.376l2.681,4.123l-0.226,2.334l0.96,0.043l2.272-3.847l-2.731-3.389L466.549,400L465.14,401.376L465.14,401.376z"/>\n  <path class="country" data-iso="de" data-name="Niemcy" d="M422.257,384.234l3.086-0.5v-2.178l2.584-0.425l1.418,1.427l1.495,0.164l2.334-1.012l2.083,0.588l1.832,1.592l0.251,5.955l1.832,2.438l-2.411,0.337l-4.003,2.515l0.338,0.839l3.579,3.354l-0.251,1.677l-3.328,1.677l-3.085,0.086l-0.753,1.59h-1.581l-0.752-1.676l-2.749-0.675l-0.088-2.767l-1.39-0.77l0.114-1.861l-0.406-1.328l-1.982-1.824l0.414-2.854l2.161-1.011L422.257,384.234L422.257,384.234z"/>\n  <path class="country" data-iso="no" data-name="Norwegia" d="M460.567,327.409l1.747-1.279l-0.157-1.435l-1.106-0.641l0.157-1.754h0.95v-0.96l-4.123-1.114l-6.181,0.64l-0.631,2.714l-1.428-0.477l-0.951-1.599l-3.017,0.155l-0.32,3.033l-1.426,0.641l-0.795-1.6l-6.345,5.109l1.271,1.436l-2.378,1.115l-5.393,10.701l-1.901,1.279l0.155,0.959l1.9,0.959l-0.475,2.074l-3.173-0.164l-0.952-1.115l-2.057,2.395l-1.271,0.959l-0.32,2.24l-1.105,0.64l-2.854,0.64l-1.426,4.479l0.951,7.348l1.106,3.354l1.271,1.279l2.853-0.156l4.124-3.994l1.581-2.713l0.478,3.992l2.697-4.789l0.154-13.424l2.195-1.383l0.657-7.408l6.655-9.586l3.173-1.115l1.427-1.755l4.754,1.115l2.377,1.435l0.796-3.992l3.968-2.396L460.567,327.409L460.567,327.409z M437.056,285.762l-1.426-1.435l-3.164,1.539h-5.809l-0.917,3.389l3.26,2.878l1.425-0.208l2.04-3.491l1.729,1.235l-1.229,2.464l-0.614,3.596l1.427,2.256l3.06-5.135l3.979-4.832l-1.531-1.33L437.056,285.762L437.056,285.762z M438.784,279.6l-2.55,2.359l1.529,2.359h2.749l1.124,1.539l3.363,1.746l3.871-2.256l2.654-2.256l-0.916-1.85l-2.654-1.539l-1.938,1.746l-1.321-1.644l-1.021,0.104l-1.322,2.878l-1.936-1.954l-0.208-1.331L438.784,279.6L438.784,279.6z M444.593,290.179l-2.04,1.851l-1.729,1.332l0.812,1.435l1.636,0.511l2.652-1.236l1.229-1.539l-1.124-1.85L444.593,290.179L444.593,290.179z"/>\n  <path class="country" data-iso="pl" data-name="Polska" d="M457.109,390.184l0.733,1.348l0.174,1.435l-0.604,1.392l-1.383,2.664l-1.167,0.526l-1.514-0.657l-0.908,0.043l-2.204,0.83l-2.506-0.742l-4.062-2.879l-3.978-2.135l-1.6-2.438l-0.303-5.75l3.112-2.705l4.062-1.35l1.328-0.138l0.315,1.007l1.725,0.692l4.766,0.09l1.47-0.043l2.421,3.708l-0.604,1.521l0.259,1.789L457.109,390.184L457.109,390.184z"/>\n  <path class="country" data-iso="pt" data-name="Portugalia" d="M387.499,421.716l-0.536,7.478l-1.53,1.384l0.156,0.846l1.071,1.772l-0.691,2.16l1.149,0.39l2.68-0.312l-0.155-2.16l1.756-10.02l-0.382-1.383L387.499,421.716L387.499,421.716z M367.834,443.481l-0.934,1.185l0.934,1.185l1.408-0.709L367.834,443.481L367.834,443.481z M337.112,426.713l-1.175,1.184l2.107,1.185l0.234-1.649L337.112,426.713L337.112,426.713z M343.448,426.004l-1.408,0.941l1.175,0.941l1.876-0.476L343.448,426.004L343.448,426.004z M344.382,429.314l-0.7,1.892l0.935,1.185l1.175-0.941L344.382,429.314L344.382,429.314z M350.01,433.092l-0.467,1.184l0.701,0.709l1.875-1.184L350.01,433.092L350.01,433.092z"/>\n  <path class="country" data-iso="ro" data-name="Rumunia" d="M457.731,401.281l-0.226,1.279l-5.005,4.166l4.184,6.137l2.682,1.877h4.823l1.591-1.331l2.135-0.276l1.591,0.959l2.818-3.207l-0.545-1.607l-2.861-0.734l-1.953-0.095l0.094-2.749l-2.593-4.08L457.731,401.281L457.731,401.281z"/>\n  <path class="country" data-iso="rs" data-name="Serbia" d="M452.001,407.279l-1.772,1.332h-0.863l-0.588,1.832l2.092,2.43l0.139,1.928l-0.882,1.246l3.068,3.197l3.317-1.012l-0.274-4.721L452.001,407.279L452.001,407.279z"/>\n  <path class="country" data-iso="sk" data-name="Słowacja" d="M443.607,400.875l0.597,0.527l0.077,0.898l6.596-0.146l4.875-2.102l-0.077-2.135l-0.934,0.415l-1.34-0.718l-0.821-0.035l-2.161,0.865l-2.938-0.709L443.607,400.875L443.607,400.875z"/>\n  <path class="country" data-iso="si" data-name="Słowenia" d="M442.708,405.076l-2.195,1.314l-4.097,0.898l0.82,2.368l2.87,0.034l2.646-2.213L442.708,405.076L442.708,405.076z"/>\n  <path class="country" data-iso="ch" data-name="Szwajcaria" d="M423.787,402.82l-3.771,4.011l0.078,0.405l1.547-0.483l1.393,1.937l2.352-0.83l1.625,1.263l0.667-0.38l2.005-3.146l-0.511-0.484l-1.979-0.051l-0.959-1.963L423.787,402.82L423.787,402.82z"/>\n  <path class="country" data-iso="se" data-name="Szwecja" d="M445.232,329.52l1.693,1.563h3.173l1.746,3.354l0.477,5.748l-4.278,3.035v3.033l-3.017,4.158l-1.746,0.154l-2.378,3.994l0.155,3.838l4.124,3.035l-0.319,1.754l-1.582,2.396l-2.377,2.074l0.155,6.872l-3.647,1.279l-1.271,2.713h-1.747l-0.949-4.789l-3.969-6.084l3.26-5.455l0.225-13.477l2.248-1.236l0.545-7.709l6.405-9.172L445.232,329.52L445.232,329.52z M445.898,368.927l-1.824,1.443l0.917,2.118l1.616-1.573L445.898,368.927L445.898,368.927z"/>\n  <path class="country" data-iso="tr" data-name="Turcja" d="M472.812,421.906l-2.305-1.426l-1.271-1.013l-2.138,0.916l0,0l-1.477,3.74l2.219-0.5l1.562-1.188l3.438,0.938l-1.946,1.877L465.719,425l-1.91,2.093v1.021l1.22,1.021v1.123l-0.511,1.332l0.511,1.123l1.625-0.812l1.625,1.737l-0.406,1.228l-0.604,0.82l0.907,1.021l4.461,0.916l3.139-1.331v-1.937l1.521,0.303l3.648,2.144l3.948-0.614l1.721-1.633l1.114,0.406v1.841h1.521l1.313-2.55l11.549-1.229l5.04-0.613l-1.331-1.746l-0.025-2.359l1.011-1.21l-3.682-2.956l0.197-2.551h-2.022l-3.354-1.643l0,0l-1.929,2.041l-7.088-0.209l-4.253-2.549l-4.082,0.366l-4.544,2.729L472.812,421.906z"/>\n  <path class="country" data-iso="ua" data-name="Ukraina" d="M460.662,388.791l-2.507,1.409l0.622,2.663l-2.316,4.884l0.02,2.151l1.089,0.691l6.983,0.346l1.954-1.615l2.092,0.699l2.999,4.002l-2.194,3.942l2.61,0.761l3.414-3.933l1.954,0.354l1.815,1.262l-1.601,2.109l2.161,3.371h2.299l1.185-2.248l2.438-0.494l0.069-1.823l-4.529-0.7l0.14-1.963h4.391l4.737-3.794l2.092-1.824l0.345-5.757l-9.336-0.838l-3.829-5.402l-2.646-0.908l-3.207,0.139l-1.443,3.569l-6.57,0.087l-2.135-0.986L460.662,388.791L460.662,388.791z"/>\n  <path class="country" data-iso="hu" data-name="Węgry" d="M444.386,403.01l-1.003,1.573l0.078,2.403l1.599,0.82l4.919,0.147l6.854-5.774l0.034-1.279l-0.742-0.371l-4.953,2.248L444.386,403.01L444.386,403.01z"/>\n  <path class="country" data-iso="gb" data-name="Wielka Brytania" d="M400.629,367.984l-1.582,2.395l0.631,0.959h3.648v1.6l-0.952,1.278l0.632,3.354l2.058,3.994l1.581,3.672l2.533,0.959l1.105,1.92l-0.155,1.755l-1.582,0.959l-0.156,0.795l1.106,0.64l-0.951,1.279l-2.221,0.959l-4.279-0.477l-6.664,3.035l-2.221-1.115l6.345-3.674l-0.796-0.477l-3.328-0.32l2.058-3.033l0.319-2.56l2.696-0.319l-0.475-4.953l-3.174-0.155l-0.95-1.115l0.155-3.674l-1.901,0.156l1.901-6.388l3.492-2.56L400.629,367.984L400.629,367.984z M393.974,378.693l-2.853,0.32l-0.156,2.56l1.901,1.278l2.058-0.475l0.796-1.436L393.974,378.693L393.974,378.693z"/>\n  <path class="country" data-iso="it" data-name="Włochy" d="M423.233,409.391l-0.535,1.356l0.146,1.478l2.065,2.412l3.25-0.113l7.175,8.334l4.479,1.297l2.646,2.498l0.631,5.695l1.417-0.828l1.229-3.104l-0.303-2.229l2.101-0.19l0.304-1.263l-5.922-2.834l-5.619-5.523l-2.238-3.303l-0.545-3.137l2.861-0.684l-0.734-2.066l-1.755-1.478l-1.513-0.069l-2.108,0.58l-1.99,2.781l-1.201,0.795l-1.858-1.141L423.233,409.391L423.233,409.391z M440.668,431.898l-1.253-0.674l-4.278,0.674l0.146,1.158l3.847,1.937l0.579,0.631l1.012,0.147L440.668,431.898L440.668,431.898z M427.806,423.566l-2.289,1.158l0.303,4.469l1.833,0.311l1.374-1.312v-4.235L427.806,423.566L427.806,423.566z"/>\n</svg>\n';
+
+// Countries excluded from "map" mode - microstates absent from the SVG, plus countries not on the European map
+var MAP_EXCLUDED_ISO = ["kz", "cy", "mt", "lu", "li", "ad", "mc", "sm", "va", "xk"];
+
+var DATA = [
+  {id:1, country:"Albania", capital:"Tirana", en:"ALBANIA", iso:"al"},
+  {id:2, country:"Andora", capital:"Andora", en:"ANDORRA", iso:"ad"},
+  {id:3, country:"Austria", capital:"Wiede\u0144", en:"AUSTRIA", iso:"at"},
+  {id:4, country:"Belgia", capital:"Bruksela", en:"BELGIUM", iso:"be"},
+  {id:5, country:"Bia\u0142oru\u015b", capital:"Mi\u0144sk", en:"BELARUS", iso:"by"},
+  {id:6, country:"Bo\u015bnia i Hercegowina", capital:"Sarajewo", en:"BOSNIA AND HERZEGOVINA", iso:"ba"},
+  {id:7, country:"Bu\u0142garia", capital:"Sofia", en:"BULGARIA", iso:"bg"},
+  {id:8, country:"Chorwacja", capital:"Zagrzeb", en:"CROATIA", iso:"hr"},
+  {id:9, country:"Czarnog\u00f3ra", capital:"Podgorica", en:"MONTENEGRO", iso:"me"},
+  {id:10, country:"Czechy", capital:"Praga", en:"CZECH REPUBLIC", iso:"cz"},
+  {id:11, country:"Dania", capital:"Kopenhaga", en:"DENMARK", iso:"dk"},
+  {id:12, country:"Estonia", capital:"Tallinn", en:"ESTONIA", iso:"ee"},
+  {id:13, country:"Finlandia", capital:"Helsinki", en:"FINLAND", iso:"fi"},
+  {id:14, country:"Francja", capital:"Pary\u017c", en:"FRANCE", iso:"fr"},
+  {id:15, country:"Grecja", capital:"Ateny", en:"GREECE", iso:"gr"},
+  {id:16, country:"Hiszpania", capital:"Madryt", en:"SPAIN", iso:"es"},
+  {id:17, country:"Holandia", capital:"Amsterdam", en:"NETHERLANDS", iso:"nl"},
+  {id:18, country:"Irlandia", capital:"Dublin", en:"IRELAND", iso:"ie"},
+  {id:19, country:"Islandia", capital:"Reykjavik", en:"ICELAND", iso:"is"},
+  {id:20, country:"Kazachstan", capital:"Astana", en:"KAZAKHSTAN", iso:"kz"},
+  {id:21, country:"Kosowo", capital:"Prisztina", en:"KOSOVO", iso:"xk"},
+  {id:22, country:"Liechtenstein", capital:"Vaduz", en:"LIECHTENSTEIN", iso:"li"},
+  {id:23, country:"Litwa", capital:"Wilno", en:"LITHUANIA", iso:"lt"},
+  {id:24, country:"Luksemburg", capital:"Luksemburg", en:"LUXEMBOURG", iso:"lu"},
+  {id:25, country:"\u0141otwa", capital:"Ryga", en:"LATVIA", iso:"lv"},
+  {id:26, country:"Macedonia P\u00f3\u0142nocna", capital:"Skopje", en:"MACEDONIA", iso:"mk"},
+  {id:27, country:"Malta", capital:"Valletta", en:"MALTA", iso:"mt"},
+  {id:28, country:"Mo\u0142dawia", capital:"Kiszyni\u00f3w", en:"MOLDOVA", iso:"md"},
+  {id:29, country:"Monako", capital:"Monako", en:"MONACO", iso:"mc"},
+  {id:30, country:"Niemcy", capital:"Berlin", en:"GERMANY", iso:"de"},
+  {id:31, country:"Norwegia", capital:"Oslo", en:"NORWAY", iso:"no"},
+  {id:32, country:"Polska", capital:"Warszawa", en:"POLAND", iso:"pl"},
+  {id:33, country:"Portugalia", capital:"Lizbona", en:"PORTUGAL", iso:"pt"},
+  {id:34, country:"Rosja", capital:"Moskwa", en:"RUSSIA", iso:"ru"},
+  {id:35, country:"Rumunia", capital:"Bukareszt", en:"ROMANIA", iso:"ro"},
+  {id:36, country:"San Marino", capital:"San Marino", en:"SAN MARINO", iso:"sm"},
+  {id:37, country:"Serbia", capital:"Belgrad", en:"SERBIA", iso:"rs"},
+  {id:38, country:"S\u0142owacja", capital:"Bratys\u0142awa", en:"SLOVAKIA", iso:"sk"},
+  {id:39, country:"S\u0142owenia", capital:"Lublana", en:"SLOVENIA", iso:"si"},
+  {id:40, country:"Szwajcaria", capital:"Berno", en:"SWITZERLAND", iso:"ch"},
+  {id:41, country:"Szwecja", capital:"Sztokholm", en:"SWEDEN", iso:"se"},
+  {id:42, country:"Turcja", capital:"Ankara", en:"TURKEY", iso:"tr"},
+  {id:43, country:"Ukraina", capital:"Kij\u00f3w", en:"UKRAINE", iso:"ua"},
+  {id:44, country:"Watykan", capital:"Watykan", en:"VATICAN CITY", iso:"va"},
+  {id:45, country:"W\u0119gry", capital:"Budapeszt", en:"HUNGARY", iso:"hu"},
+  {id:46, country:"Wielka Brytania", capital:"Londyn", en:"UNITED KINGDOM", iso:"gb"},
+  {id:47, country:"W\u0142ochy", capital:"Rzym", en:"ITALY", iso:"it"}
+];
+
+
+var state = {
+  screen:"menu", mode:null, questions:[], currentQ:0,
+  answers:[], allRounds:[], answered:false, mapHighlight:null, selectedOption:null
+};
+
+function shuffle(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+function generateQuestions(mode) {
+  var pool = DATA.slice();
+  if (mode === "map") pool = pool.filter(function(d){return MAP_EXCLUDED_ISO.indexOf(d.iso)===-1;});
+  var selected = shuffle(pool).slice(0, 10);
+  return selected.map(function(item) {
+    var others = pool.filter(function(d){return d.id !== item.id;});
+    var wrongItems = shuffle(others).slice(0, 3);
+    if (mode === "capitals") {
+      var opts = shuffle([item.capital].concat(wrongItems.map(function(w){return w.capital;})));
+      return {item:item, question:item.country, answer:item.capital, options:opts};
+    } else if (mode === "countries") {
+      var opts = shuffle([item.country].concat(wrongItems.map(function(w){return w.country;})));
+      return {item:item, question:item.capital, answer:item.country, options:opts};
+    } else {
+      // Map mode: answer is the ISO code, click handler reads data-iso
+      return {item:item, question:item.capital, answer:item.iso, options:null};
+    }
+  });
+}
+
+function getDistance(x1,y1,x2,y2) {
+  return Math.sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2));
+}
+
+// Note: findCountryAtPoint() removed — SVG <path> elements now handle clicks natively
+// via event.target.dataset.iso in handleMapClick().
+
+function esc(s) {
+  var d = document.createElement("div");
+  d.appendChild(document.createTextNode(s));
+  return d.innerHTML;
+}
+
+function render() {
+  var app = document.getElementById("app");
+  if (state.screen === "menu") renderMenu(app);
+  else if (state.screen === "playing") renderQuestion(app);
+  else if (state.screen === "results") renderResults(app);
+  else if (state.screen === "summary") renderSummary(app);
+}
+
+function renderMenu(app) {
+  app.innerHTML =
+    '<div class="container fade-in">' +
+      '<div class="compass">\uD83E\uDDED</div>' +
+      '<h1>GeoQuiz Europa</h1>' +
+      '<p class="subtitle">Sprawdź swoją wiedzę o krajach i stolicach</p>' +
+      '<div class="mode-grid">' +
+        '<div class="mode-btn" id="mCapitals">' +
+          '<div class="mode-icon">\uD83C\uDFDB\uFE0F</div>' +
+          '<div><div class="mode-title">Zgadnij stolic\u0119</div>' +
+          '<div class="mode-desc">Podajemy pa\u0144stwo \u2014 wybierz prawid\u0142ow\u0105 stolic\u0119</div></div>' +
+        '</div>' +
+        '<div class="mode-btn" id="mCountries">' +
+          '<div class="mode-icon">\uD83C\uDF0D</div>' +
+          '<div><div class="mode-title">Zgadnij pa\u0144stwo</div>' +
+          '<div class="mode-desc">Podajemy stolic\u0119 \u2014 wybierz prawid\u0142owe pa\u0144stwo</div></div>' +
+        '</div>' +
+        '<div class="mode-btn" id="mMap">' +
+          '<div class="mode-icon">\uD83D\uDDFA\uFE0F</div>' +
+          '<div><div class="mode-title">Wska\u017c na mapie</div>' +
+          '<div class="mode-desc">Podajemy stolic\u0119 \u2014 kliknij na odpowiedni kraj na mapie</div></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.getElementById("mCapitals").addEventListener("click", function(){startGame("capitals");});
+  document.getElementById("mCountries").addEventListener("click", function(){startGame("countries");});
+  document.getElementById("mMap").addEventListener("click", function(){startGame("map");});
+}
+
+// =========================================================================
+// Audio feedback - synthesized via Web Audio API (no external files needed)
+// =========================================================================
+var audioCtx = null;
+function getAudioCtx() {
+  if (audioCtx === false) return null; // permanently disabled (browser doesn't support)
+  if (!audioCtx) {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) { audioCtx = false; return null; }
+      audioCtx = new Ctx();
+    } catch(e) { audioCtx = false; return null; }
+  }
+  // Browsers suspend AudioContext until user gesture - resume if needed
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+
+function playClick() {
+  var ctx = getAudioCtx(); if (!ctx) return;
+  var osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.type = "square";
+  osc.frequency.value = 800;
+  gain.gain.setValueAtTime(0.12, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + 0.06);
+}
+
+function playSuccess() {
+  var ctx = getAudioCtx(); if (!ctx) return;
+  // Triumphant ascending arpeggio: C5 -> E5 -> G5 -> C6
+  var notes = [523.25, 659.25, 783.99, 1046.50];
+  var dur = 0.13;
+  notes.forEach(function(freq, i) {
+    var osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.value = freq;
+    var t = ctx.currentTime + i * dur;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.18, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur * 1.6);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(t); osc.stop(t + dur * 1.7);
+  });
+  // Sustained high "shimmer" bell at the end
+  var t = ctx.currentTime + notes.length * dur;
+  var bell = ctx.createOscillator(), bellGain = ctx.createGain();
+  bell.type = "sine";
+  bell.frequency.value = 2093;  // C7
+  bellGain.gain.setValueAtTime(0, t);
+  bellGain.gain.linearRampToValueAtTime(0.08, t + 0.05);
+  bellGain.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+  bell.connect(bellGain); bellGain.connect(ctx.destination);
+  bell.start(t); bell.stop(t + 1.3);
+}
+
+function playFailure() {
+  var ctx = getAudioCtx(); if (!ctx) return;
+  // "Sad trombone": descending tones G4 -> F4 -> Eb4 -> B3 (held)
+  var notes = [
+    {f: 392.00, d: 0.18},
+    {f: 349.23, d: 0.18},
+    {f: 311.13, d: 0.18},
+    {f: 246.94, d: 0.7}
+  ];
+  var t = ctx.currentTime;
+  notes.forEach(function(n) {
+    var osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.value = n.f;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.13, t + 0.03);
+    gain.gain.setValueAtTime(0.13, t + n.d - 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + n.d);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(t); osc.stop(t + n.d);
+    t += n.d * 0.92; // slight overlap for legato feel
+  });
+}
+
+// =========================================================================
+// Confetti - canvas-based, fires on >=80% accuracy in summary screen
+// =========================================================================
+function startConfetti() {
+  var canvas = document.createElement("canvas");
+  canvas.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:9999";
+  document.body.appendChild(canvas);
+  var c = canvas.getContext("2d"), W, H;
+  function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+  resize();
+  window.addEventListener("resize", resize);
+
+  var colors = ["#e8b84b", "#4ec97a", "#e85555", "#5b9aff", "#c084fc", "#fb923c"];
+  var particles = [];
+  for (var i = 0; i < 140; i++) {
+    particles.push({
+      x: Math.random() * W,
+      y: -20 - Math.random() * H * 0.4,
+      vx: (Math.random() - 0.5) * 5,
+      vy: 2 + Math.random() * 5,
+      rot: Math.random() * Math.PI * 2,
+      vrot: (Math.random() - 0.5) * 0.25,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 6 + Math.random() * 7,
+      shape: Math.random() < 0.6 ? "rect" : "circle"
+    });
+  }
+
+  var startTime = Date.now(), duration = 4500;
+  function frame() {
+    var elapsed = Date.now() - startTime;
+    if (elapsed > duration + 1200) {
+      canvas.remove();
+      window.removeEventListener("resize", resize);
+      return;
+    }
+    c.clearRect(0, 0, W, H);
+    var fade = elapsed > duration ? Math.max(0, 1 - (elapsed - duration) / 1200) : 1;
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      p.x += p.vx; p.y += p.vy;
+      p.vy += 0.13;     // gravity
+      p.vx *= 0.99;     // air resistance
+      p.rot += p.vrot;
+      c.save();
+      c.globalAlpha = fade;
+      c.translate(p.x, p.y);
+      c.rotate(p.rot);
+      c.fillStyle = p.color;
+      if (p.shape === "rect") c.fillRect(-p.size/2, -p.size/2, p.size, p.size * 0.4);
+      else { c.beginPath(); c.arc(0, 0, p.size/2, 0, Math.PI * 2); c.fill(); }
+      c.restore();
+    }
+    requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+function startGame(mode) {
+  state.mode = mode;
+  state.questions = generateQuestions(mode);
+  state.currentQ = 0;
+  state.answers = [];
+  state.answered = false;
+  state.mapHighlight = null;
+  state.selectedOption = null;
+  state.screen = "playing";
+  render();
+}
+
+// Abort current round - reset only current round state, preserve allRounds history
+function abortGame() {
+  state.mode = null;
+  state.questions = [];
+  state.currentQ = 0;
+  state.answers = [];
+  state.answered = false;
+  state.mapHighlight = null;
+  state.selectedOption = null;
+  state.screen = "menu";
+  render();
+}
+
+function renderQuestion(app) {
+  var q = state.questions[state.currentQ];
+  var progress = (state.currentQ / 10) * 100;
+  var score = state.answers.filter(function(a){return a.correct;}).length;
+  var modeLabel = state.mode==="capitals"?"Stolice":state.mode==="countries"?"Pa\u0144stwa":"Mapa";
+
+  var html = '<div class="container fade-in">' +
+    '<div class="question-header">' +
+      '<span class="q-counter">' + modeLabel + ' \u2014 Pytanie ' + (state.currentQ+1) + '/10</span>' +
+      '<span class="q-score">Wynik: ' + score + '/' + state.currentQ + '</span>' +
+    '</div>' +
+    '<div class="progress-bar"><div class="progress-fill" style="width:' + progress + '%"></div></div>';
+
+  if (state.mode === "map") {
+    html += '<div class="q-text">Gdzie znajduje si\u0119 stolica <span>' + esc(q.question) + '</span>?<br>' +
+      '<small style="color:var(--text2);font-size:0.85rem">Kliknij na odpowiedni kraj na mapie</small></div>' +
+      '<div class="map-container' + (state.answered ? ' answered' : '') + '" id="mapContainer">' +
+      MAP_SVG +
+      '</div>';
+    if (state.answered) {
+      // Show which country was wrongly clicked / hint about the correct one
+      var lastAnswer = state.answers[state.answers.length - 1];
+      if (lastAnswer && !lastAnswer.correct) {
+        html += '<div style="margin-top:12px;padding:12px;background:rgba(232,85,85,0.1);border-radius:10px;border-left:4px solid var(--red);font-size:0.95rem">' +
+          'Twoja odpowied\u017a: <strong>' + esc(lastAnswer.userAnswer) + '</strong><br>' +
+          'Prawid\u0142owa odpowied\u017a: <strong style="color:var(--accent)">' + esc(lastAnswer.correctAnswer) + '</strong>' +
+          '</div>';
+      } else if (lastAnswer && lastAnswer.correct) {
+        html += '<div style="margin-top:12px;padding:12px;background:rgba(78,201,122,0.12);border-radius:10px;border-left:4px solid var(--green);font-size:0.95rem">' +
+          '\u2713 Brawo! To <strong>' + esc(lastAnswer.correctAnswer) + '</strong>' +
+          '</div>';
+      }
+    }
+  } else {
+    var questionLabel = state.mode === "capitals"
+      ? 'Jaka jest stolica pa\u0144stwa <span>' + esc(q.question) + '</span>?'
+      : 'Jakiego pa\u0144stwa stolic\u0105 jest <span>' + esc(q.question) + '</span>?';
+    html += '<div class="q-text">' + questionLabel + '</div><div class="options-grid">';
+    for (var i = 0; i < q.options.length; i++) {
+      var opt = q.options[i];
+      var cls = "option-btn";
+      if (state.answered) {
+        cls += " disabled";
+        if (opt === q.answer) cls += " correct";
+        else if (opt === state.selectedOption) cls += " wrong";
+      }
+      html += '<button class="' + cls + '" data-idx="' + i + '">' + esc(opt) + '</button>';
+    }
+    html += '</div>';
+  }
+
+  if (state.answered) {
+    html += '<div class="next-btn-area"><button class="btn btn-primary" id="nextBtn">Nast\u0119pne pytanie \u279C</button></div>';
+  }
+
+  html += '<div class="abort-row"><button class="btn-abort" id="abortBtn">\u2715 Przerwij rozgrywk\u0119</button></div>';
+
+  html += '</div>';
+  app.innerHTML = html;
+
+  if (state.mode === "map") {
+    var mapContainer = document.getElementById("mapContainer");
+    // Re-apply highlight classes from previous answer (after re-render)
+    if (state.mapHighlight) {
+      var h = state.mapHighlight;
+      if (h.clickedIso) {
+        var clicked = mapContainer.querySelector('[data-iso="' + h.clickedIso + '"]');
+        if (clicked) clicked.classList.add(h.correct ? "correct" : "wrong");
+      }
+      if (!h.correct && h.correctIso) {
+        var hint = mapContainer.querySelector('[data-iso="' + h.correctIso + '"]');
+        if (hint) hint.classList.add("hint");
+      }
+    }
+    if (!state.answered) {
+      mapContainer.addEventListener("click", handleMapClick);
+    }
+  } else if (!state.answered) {
+    var buttons = document.querySelectorAll(".option-btn");
+    for (var b = 0; b < buttons.length; b++) {
+      (function(btn, idx){
+        btn.addEventListener("click", function(){
+          selectOption(state.questions[state.currentQ].options[idx]);
+        });
+      })(buttons[b], b);
+    }
+  }
+
+  var nextBtn = document.getElementById("nextBtn");
+  if (nextBtn) nextBtn.addEventListener("click", nextQuestion);
+
+  var abortBtn = document.getElementById("abortBtn");
+  if (abortBtn) abortBtn.addEventListener("click", abortGame);
+}
+
+// Find the country whose bounding-box center is closest to the click point.
+// Used as fallback when the click misses any path (e.g. between borders or on tiny countries).
+// Limited to a sensible radius to avoid weird "click in ocean teleports across map" effects.
+function findNearestCountry(container, clientX, clientY) {
+  var paths = container.querySelectorAll("[data-iso]");
+  var nearest = null, nearestDist = Infinity;
+  for (var i = 0; i < paths.length; i++) {
+    var bbox = paths[i].getBoundingClientRect();
+    var cx = bbox.left + bbox.width / 2;
+    var cy = bbox.top + bbox.height / 2;
+    var dx = clientX - cx, dy = clientY - cy;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      nearest = paths[i];
+    }
+  }
+  // Limit fallback radius to ~60px so far-away clicks (out of map) are ignored
+  return nearestDist <= 60 ? nearest : null;
+}
+
+function handleMapClick(e) {
+  if (state.answered) return;
+  // Find the closest <path> ancestor with data-iso (event might fire on inner shape)
+  var target = e.target;
+  while (target && target !== e.currentTarget && !target.dataset.iso) {
+    target = target.parentNode;
+  }
+
+  // Fallback: if click missed any country (between borders / on a tiny country),
+  // find the country whose bounding-box center is closest to the click point.
+  if (!target || !target.dataset || !target.dataset.iso) {
+    target = findNearestCountry(e.currentTarget, e.clientX, e.clientY);
+  }
+  if (!target) return; // Still nothing found - bail
+
+  playClick();
+
+  var clickedIso = target.dataset.iso;
+  var q = state.questions[state.currentQ];
+  var isCorrect = clickedIso === q.answer;
+
+  // Find the data entry for the clicked country (for "your answer" display)
+  var clickedData = null;
+  for (var i = 0; i < DATA.length; i++) {
+    if (DATA[i].iso === clickedIso) { clickedData = DATA[i]; break; }
+  }
+  var clickedName = clickedData ? clickedData.country : clickedIso.toUpperCase();
+
+  state.answered = true;
+  // Store highlight info so re-render can re-apply classes
+  state.mapHighlight = {
+    clickedIso: clickedIso,
+    correct: isCorrect,
+    correctIso: q.answer
+  };
+
+  state.answers.push({
+    question: q.question,
+    correct: isCorrect,
+    userAnswer: clickedName,
+    correctAnswer: q.item.country,
+    item: q.item
+  });
+  render();
+}
+
+function selectOption(opt) {
+  if (state.answered) return;
+  playClick();
+  state.answered = true;
+  state.selectedOption = opt;
+  var q = state.questions[state.currentQ];
+  state.answers.push({
+    question: q.question, correct: opt === q.answer,
+    userAnswer: opt, correctAnswer: q.answer, item: q.item
+  });
+  render();
+}
+
+function nextQuestion() {
+  state.currentQ++;
+  state.answered = false;
+  state.mapHighlight = null;
+  state.selectedOption = null;
+  if (state.currentQ >= 10) {
+    state.allRounds.push({mode:state.mode, answers:state.answers.slice()});
+    state.screen = "results";
+  }
+  render();
+}
+
+function renderResults(app) {
+  var lastRound = state.allRounds[state.allRounds.length - 1];
+  var score = lastRound.answers.filter(function(a){return a.correct;}).length;
+  var modeNames = {capitals:"Stolice",countries:"Pa\u0144stwa",map:"Mapa"};
+  var emoji = score>=9?"\uD83C\uDFC6":score>=7?"\uD83C\uDF89":score>=5?"\uD83D\uDC4D":"\uD83D\uDCDA";
+  var message = score>=9?"Wspaniale!":score>=7?"Bardzo dobrze!":score>=5?"Nie\u017ale!":"Po\u0107wicz jeszcze!";
+
+  var html = '<div class="container fade-in">' +
+    '<div class="score-display">' +
+      '<div style="font-size:3rem">' + emoji + '</div>' +
+      '<div class="score-big"><span class="good">' + score + '</span><span class="sep"> / </span>10</div>' +
+      '<div class="score-label">' + message + ' \u2014 Tryb: ' + modeNames[lastRound.mode] + '</div>' +
+    '</div><div class="results-list">';
+
+  for (var i = 0; i < lastRound.answers.length; i++) {
+    var a = lastRound.answers[i];
+    var cls = a.correct ? "correct" : "wrong";
+    var icon = a.correct ? "\u2705" : "\u274C";
+    var detail = a.correct
+      ? '<span class="correct-answer">' + esc(a.userAnswer) + '</span>'
+      : '<span class="wrong-answer">' + esc(a.userAnswer) + '</span> \u2192 <span class="correct-answer">' + esc(a.correctAnswer) + '</span>';
+    html += '<div class="result-item ' + cls + '">' +
+      '<div class="result-icon">' + icon + '</div>' +
+      '<div class="result-text">' +
+        '<div class="question-label">' + (i+1) + '. ' + esc(a.question) + '</div>' +
+        '<div>' + detail + '</div>' +
+      '</div></div>';
+  }
+
+  html += '</div><div class="btn-row">' +
+    '<button class="btn btn-primary" id="retryBtn">Zagraj ponownie</button>' +
+    '<button class="btn btn-secondary" id="summaryBtn">Podsumowanie</button>' +
+    '</div></div>';
+  app.innerHTML = html;
+
+  document.getElementById("retryBtn").addEventListener("click", function(){ state.screen="menu"; render(); });
+  document.getElementById("summaryBtn").addEventListener("click", function(){ state.screen="summary"; render(); });
+}
+
+// Calculates "Wygrany czas" (won points) for a single round:
+// - Map mode:      +1   pt per correct;   penalty 1/3/6   for 1/2/3 wrong
+// - Text modes:    +0.5 pt per correct;   penalty 0.5/1/1.5 for 1/2/3 wrong
+// - 4 or more wrong (any mode): round score = 0
+// - Result is never negative
+function calculateRoundPoints(round) {
+  var correct = 0, wrong = 0;
+  for (var i = 0; i < round.answers.length; i++) {
+    if (round.answers[i].correct) correct++;
+    else wrong++;
+  }
+  if (wrong >= 4) return 0;
+  var isMap = round.mode === "map";
+  var perCorrect = isMap ? 1 : 0.5;
+  // Map: penalty grows progressively (1, 3, 6) -> wrong*(wrong+1)/2
+  // Text: flat 0.5 per error (0.5, 1, 1.5) -> wrong * 0.5
+  var penalty = isMap ? wrong * (wrong + 1) / 2 : wrong * 0.5;
+  var score = correct * perCorrect - penalty;
+  return score < 0 ? 0 : score;
+}
+
+function calculateTotalPoints(allRounds) {
+  var total = 0;
+  for (var i = 0; i < allRounds.length; i++) {
+    total += calculateRoundPoints(allRounds[i]);
+  }
+  return total;
+}
+
+// Build mailto link with results & open default email client
+function sendEmail() {
+  var total = calculateTotalPoints(state.allRounds);
+
+  // Aggregate wrong answers across all rounds
+  var wrongs = {};
+  for (var r = 0; r < state.allRounds.length; r++) {
+    var round = state.allRounds[r];
+    for (var i = 0; i < round.answers.length; i++) {
+      var ans = round.answers[i];
+      if (!ans.correct && ans.item) {
+        var key = ans.item.country + "||" + ans.item.capital;
+        wrongs[key] = (wrongs[key] || 0) + 1;
+      }
+    }
+  }
+
+  // Date/time for subject
+  var now = new Date();
+  var pad = function(n) { return n < 10 ? "0" + n : "" + n; };
+  var dateStr = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
+  var timeStr = pad(now.getHours()) + ":" + pad(now.getMinutes());
+
+  var subject = "geoscoring; " + dateStr + " " + timeStr;
+
+  // Body: Zdobyty czas + lines of "Country; Capital; count"
+  var body = "Zdobyty czas: " + total + "\n\n";
+  var keys = Object.keys(wrongs);
+  for (var k = 0; k < keys.length; k++) {
+    var parts = keys[k].split("||");
+    body += parts[0] + "; " + parts[1] + "; " + wrongs[keys[k]] + "\n";
+  }
+
+  var mailto = "mailto:jabbur@gmail.com?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+  window.location.href = mailto;
+}
+
+function renderSummary(app) {
+  var totalQ = 0, totalCorrect = 0;
+  for (var r = 0; r < state.allRounds.length; r++) {
+    totalQ += state.allRounds[r].answers.length;
+    for (var a = 0; a < state.allRounds[r].answers.length; a++) {
+      if (state.allRounds[r].answers[a].correct) totalCorrect++;
+    }
+  }
+  var totalWrong = totalQ - totalCorrect;
+  var pct = totalQ > 0 ? Math.round((totalCorrect / totalQ) * 100) : 0;
+  var totalPoints = calculateTotalPoints(state.allRounds);
+  var modeNames = {capitals:"Stolice",countries:"Pa\u0144stwa",map:"Mapa"};
+
+  var html = '<div class="container fade-in">' +
+    '<div class="compass" style="animation:none">\uD83D\uDCCA</div>' +
+    '<h1>Podsumowanie</h1>' +
+    '<p class="subtitle">Wszystkie rundy</p>' +
+    '<div class="summary-stats">' +
+      '<div class="stat-card"><div class="stat-number" style="color:var(--accent)">' + state.allRounds.length + '</div><div class="stat-label">Rozegranych rund</div></div>' +
+      '<div class="stat-card"><div class="stat-number" style="color:var(--green)">' + totalCorrect + '</div><div class="stat-label">Poprawnych</div></div>' +
+      '<div class="stat-card"><div class="stat-number" style="color:var(--red)">' + totalWrong + '</div><div class="stat-label">B\u0142\u0119dnych</div></div>' +
+    '</div>' +
+    '<div class="score-display" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center">' +
+      '<div><div class="score-big"><span class="good">' + pct + '%</span></div><div class="score-label">Skuteczno\u015b\u0107 og\u00f3lna</div></div>' +
+      '<div><div class="score-big"><span class="good">' + totalPoints + '</span></div><div class="score-label">Wygrany czas</div></div>' +
+    '</div>';
+
+  for (var ri = 0; ri < state.allRounds.length; ri++) {
+    var round = state.allRounds[ri];
+    var rScore = 0;
+    for (var j = 0; j < round.answers.length; j++) { if(round.answers[j].correct) rScore++; }
+    var rPoints = calculateRoundPoints(round);
+    html += '<h2 style="font-family:Georgia,serif;margin:30px 0 15px;color:var(--accent);font-size:1.2rem">Runda ' + (ri+1) + ' \u2014 ' + modeNames[round.mode] + ' (' + rScore + '/10, ' + rPoints + ' pkt)</h2><div class="results-list">';
+    for (var i = 0; i < round.answers.length; i++) {
+      var a = round.answers[i];
+      var cls = a.correct ? "correct" : "wrong";
+      var icon = a.correct ? "\u2705" : "\u274C";
+      var detail = a.correct
+        ? '<span class="correct-answer">' + esc(a.userAnswer) + '</span>'
+        : '<span class="wrong-answer">' + esc(a.userAnswer) + '</span> \u2192 <span class="correct-answer">' + esc(a.correctAnswer) + '</span>';
+      html += '<div class="result-item ' + cls + '"><div class="result-icon">' + icon + '</div><div class="result-text"><div class="question-label">' + (i+1) + '. ' + esc(a.question) + '</div><div>' + detail + '</div></div></div>';
+    }
+    html += '</div>';
+  }
+
+  html += '<div class="btn-row">' +
+    '<button class="btn btn-primary" id="retryBtn2">Zagraj ponownie</button>' +
+    '<button class="btn btn-secondary" id="sendEmailBtn">\u2709\uFE0F Wy\u015blij wynik na email</button>' +
+    '</div></div>';
+  app.innerHTML = html;
+  document.getElementById("retryBtn2").addEventListener("click", function(){ state.allRounds=[]; state.screen="menu"; render(); });
+  document.getElementById("sendEmailBtn").addEventListener("click", sendEmail);
+
+  // Audiovisual feedback based on overall accuracy.
+  // Wait briefly so the summary renders first, then the feedback feels reactive.
+  if (totalQ > 0) {
+    setTimeout(function() {
+      if (pct >= 80) {
+        playSuccess();
+        startConfetti();
+      } else if (pct < 50) {
+        playFailure();
+      }
+    }, 350);
+  }
+}
+
+render();
+</script>
+</body>
+</html>
