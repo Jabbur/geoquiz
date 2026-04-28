@@ -333,7 +333,7 @@ function shuffle(arr) {
 function generateQuestions(mode) {
   var pool = DATA.slice();
   if (mode === "map") pool = pool.filter(function(d){return MAP_EXCLUDED_ISO.indexOf(d.iso)===-1;});
-  var selected = shuffle(pool).slice(0, 10);
+  var selected = shuffle(pool).slice(0, mode === "map" ? 10 : 12);
   return selected.map(function(item) {
     var others = pool.filter(function(d){return d.id !== item.id;});
     var wrongItems = shuffle(others).slice(0, 3);
@@ -567,13 +567,14 @@ function abortGame() {
 
 function renderQuestion(app) {
   var q = state.questions[state.currentQ];
-  var progress = (state.currentQ / 10) * 100;
+  var totalQ = state.questions.length;
+  var progress = (state.currentQ / totalQ) * 100;
   var score = state.answers.filter(function(a){return a.correct;}).length;
   var modeLabel = state.mode==="capitals"?"Stolice":state.mode==="countries"?"Pa\u0144stwa":"Mapa";
 
   var html = '<div class="container fade-in">' +
     '<div class="question-header">' +
-      '<span class="q-counter">' + modeLabel + ' \u2014 Pytanie ' + (state.currentQ+1) + '/10</span>' +
+      '<span class="q-counter">' + modeLabel + ' \u2014 Pytanie ' + (state.currentQ+1) + '/' + totalQ + '</span>' +
       '<span class="q-score">Wynik: ' + score + '/' + state.currentQ + '</span>' +
     '</div>' +
     '<div class="progress-bar"><div class="progress-fill" style="width:' + progress + '%"></div></div>';
@@ -745,7 +746,7 @@ function nextQuestion() {
   state.answered = false;
   state.mapHighlight = null;
   state.selectedOption = null;
-  if (state.currentQ >= 10) {
+  if (state.currentQ >= state.questions.length) {
     state.allRounds.push({mode:state.mode, answers:state.answers.slice()});
     state.screen = "results";
   }
@@ -762,7 +763,7 @@ function renderResults(app) {
   var html = '<div class="container fade-in">' +
     '<div class="score-display">' +
       '<div style="font-size:3rem">' + emoji + '</div>' +
-      '<div class="score-big"><span class="good">' + score + '</span><span class="sep"> / </span>10</div>' +
+      '<div class="score-big"><span class="good">' + score + '</span><span class="sep"> / </span>' + lastRound.answers.length + '</div>' +
       '<div class="score-label">' + message + ' \u2014 Tryb: ' + modeNames[lastRound.mode] + '</div>' +
     '</div><div class="results-list">';
 
@@ -889,7 +890,7 @@ function renderSummary(app) {
     var rScore = 0;
     for (var j = 0; j < round.answers.length; j++) { if(round.answers[j].correct) rScore++; }
     var rPoints = calculateRoundPoints(round);
-    html += '<h2 style="font-family:Georgia,serif;margin:30px 0 15px;color:var(--accent);font-size:1.2rem">Runda ' + (ri+1) + ' \u2014 ' + modeNames[round.mode] + ' (' + rScore + '/10, ' + rPoints + ' pkt)</h2><div class="results-list">';
+    html += '<h2 style="font-family:Georgia,serif;margin:30px 0 15px;color:var(--accent);font-size:1.2rem">Runda ' + (ri+1) + ' \u2014 ' + modeNames[round.mode] + ' (' + rScore + '/' + round.answers.length + ', ' + rPoints + ' pkt)</h2><div class="results-list">';
     for (var i = 0; i < round.answers.length; i++) {
       var a = round.answers[i];
       var cls = a.correct ? "correct" : "wrong";
