@@ -376,7 +376,7 @@ function renderMenu(app) {
     '<div class="container fade-in">' +
       '<div class="compass">\uD83E\uDDED</div>' +
       '<h1>GeoQuiz Europa</h1>' +
-      '<p class="subtitle">Sprawdź swoją wiedzę o krajach i stolicach</p>' +
+      '<p class="subtitle">Sprawdź swoją wiedzę o krajach i ich stolicach</p>' +
       '<div class="mode-grid">' +
         '<div class="mode-btn" id="mCapitals">' +
           '<div class="mode-icon">\uD83C\uDFDB\uFE0F</div>' +
@@ -391,7 +391,7 @@ function renderMenu(app) {
         '<div class="mode-btn" id="mMap">' +
           '<div class="mode-icon">\uD83D\uDDFA\uFE0F</div>' +
           '<div><div class="mode-title">Wska\u017c na mapie</div>' +
-          '<div class="mode-desc">Podajemy stolic\u0119 \u2014 kliknij na odpowiedni kraj na mapie</div></div>' +
+          '<div class="mode-desc">Dostajesz stolic\u0119 \u2014 kliknij na odpowiedni kraj na mapie</div></div>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -620,7 +620,7 @@ function renderQuestion(app) {
     html += '<div class="next-btn-area"><button class="btn btn-primary" id="nextBtn">Nast\u0119pne pytanie \u279C</button></div>';
   }
 
-  html += '<div class="abort-row"><button class="btn-abort" id="abortBtn">\u2715 Przerwij rozgrywk\u0119</button></div>';
+  html += '<div class="abort-row"><button class="btn-abort" id="abortBtn">\u2715 Przerywam rund\u0119</button></div>';
 
   html += '</div>';
   app.innerHTML = html;
@@ -757,7 +757,7 @@ function renderResults(app) {
   var score = lastRound.answers.filter(function(a){return a.correct;}).length;
   var modeNames = {capitals:"Stolice",countries:"Pa\u0144stwa",map:"Mapa"};
   var emoji = score>=9?"\uD83C\uDFC6":score>=7?"\uD83C\uDF89":score>=5?"\uD83D\uDC4D":"\uD83D\uDCDA";
-  var message = score>=9?"Wspaniale!":score>=7?"Bardzo dobrze!":score>=5?"Nie\u017ale!":"Po\u0107wicz jeszcze!";
+  var message = score>=9?"Ignacy, super!":score>=7?"Bardzo dobrze Ignacy!":score>=5?"Nie\u017ale!":"Młody, po\u0107wicz jeszcze!";
 
   var html = '<div class="container fade-in">' +
     '<div class="score-display">' +
@@ -782,8 +782,8 @@ function renderResults(app) {
   }
 
   html += '</div><div class="btn-row">' +
-    '<button class="btn btn-primary" id="retryBtn">Graj dalej</button>' +
-    '<button class="btn btn-secondary" id="summaryBtn">Zakończ</button>' +
+    '<button class="btn btn-primary" id="retryBtn">Gram dalej</button>' +
+    '<button class="btn btn-secondary" id="summaryBtn">Kończę</button>' +
     '</div></div>';
   app.innerHTML = html;
 
@@ -903,8 +903,8 @@ function renderSummary(app) {
   }
 
   html += '<div class="btn-row">' +
-    '<button class="btn btn-primary" id="retryBtn2">Zacznij od nowa</button>' +
-    '<button class="btn btn-secondary" id="sendEmailBtn">\u2709\uFE0F Wy\u015blij wynik na email</button>' +
+    '<button class="btn btn-primary" id="retryBtn2">Zaczynam od nowa</button>' +
+    '<button class="btn btn-secondary" id="sendEmailBtn">\u2709\uFE0F Wy\u015blij wynik do taty</button>' +
     '</div></div>';
   app.innerHTML = html;
   document.getElementById("retryBtn2").addEventListener("click", function(){ state.allRounds=[]; state.screen="menu"; render(); });
