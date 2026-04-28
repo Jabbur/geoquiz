@@ -333,7 +333,7 @@ function shuffle(arr) {
 function generateQuestions(mode) {
   var pool = DATA.slice();
   if (mode === "map") pool = pool.filter(function(d){return MAP_EXCLUDED_ISO.indexOf(d.iso)===-1;});
-  var selected = shuffle(pool).slice(0, mode === "map" ? 10 : 12);
+  var selected = shuffle(pool).slice(0, mode === "map" ? 8 : 12);
   return selected.map(function(item) {
     var others = pool.filter(function(d){return d.id !== item.id;});
     var wrongItems = shuffle(others).slice(0, 3);
