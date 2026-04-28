@@ -856,6 +856,14 @@ function sendEmail() {
 
   var mailto = "mailto:jabbur@gmail.com,k.abramczuk@gmail.com?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   window.location.href = mailto;
+
+  var btn = document.getElementById("sendEmailBtn");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "✉️ Wysłano ✓";
+    btn.style.opacity = "0.6";
+    btn.style.cursor = "default";
+  }
 }
 
 function renderSummary(app) {
