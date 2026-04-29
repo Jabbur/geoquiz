@@ -199,6 +199,13 @@ h1 {
 .stat-label { color: var(--text2); font-size: 0.85rem; margin-top: 4px; }
 .next-btn-area { text-align: center; margin-top: 20px; }
 .abort-row { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px dashed var(--border); }
+.quiz-map-panel { max-width: 800px; margin: 0 auto; padding: 0 20px 16px; }
+.quiz-map-panel svg { width: 100%; height: auto; display: block; border-radius: 12px; border: 2px solid var(--border); background: #f5f1e8; padding: 8px; }
+.quiz-map-panel .country { fill: #fafaf6; stroke: #6b6358; stroke-width: 1.0; cursor: default; transition: fill 0.3s; }
+.quiz-map-panel .country:hover { fill: #fafaf6; }
+.quiz-map-panel .country.correct { fill: rgba(78,201,122,0.65); stroke: #2e8a4f; stroke-width: 1.4; }
+.quiz-map-panel .country.wrong   { fill: rgba(232,85,85,0.65);  stroke: #b03030; stroke-width: 1.4; }
+.quiz-map-panel .country.hint    { fill: rgba(232,184,75,0.7);  stroke: #b08020; stroke-width: 1.4; }
 .btn-abort {
   background: transparent;
   color: var(--text2);
@@ -573,38 +580,30 @@ function renderQuestion(app) {
   var score = state.answers.filter(function(a){return a.correct;}).length;
   var modeLabel = state.mode==="capitals"?"Stolice":state.mode==="countries"?"Pa\u0144stwa":"Mapa";
 
-  var html = '<div class="container fade-in">' +
-    '<div class="question-header">' +
-      '<span class="q-counter">' + modeLabel + ' \u2014 Pytanie ' + (state.currentQ+1) + '/' + totalQ + '</span>' +
-      '<span class="q-score">Wynik: ' + score + '/' + state.currentQ + '</span>' +
-    '</div>' +
-    '<div class="progress-bar"><div class="progress-fill" style="width:' + progress + '%"></div></div>';
-
-  if (state.mode === "map") {
-    html += '<div class="q-text">Gdzie znajduje si\u0119 stolica <span>' + esc(q.question) + '</span>?<br>' +
-      '<small style="color:var(--text2);font-size:0.85rem">Kliknij na odpowiedni kraj na mapie</small></div>' +
-      '<div class="map-container' + (state.answered ? ' answered' : '') + '" id="mapContainer">' +
-      MAP_SVG +
-      '</div>';
-    if (state.answered) {
-      // Show which country was wrongly clicked / hint about the correct one
-      var lastAnswer = state.answers[state.answers.length - 1];
-      if (lastAnswer && !lastAnswer.correct) {
-        html += '<div style="margin-top:12px;padding:12px;background:rgba(232,85,85,0.1);border-radius:10px;border-left:4px solid var(--red);font-size:0.95rem">' +
-          'Twoja odpowied\u017a: <strong>' + esc(lastAnswer.userAnswer) + '</strong><br>' +
-          'Prawid\u0142owa odpowied\u017a: <strong style="color:var(--accent)">' + esc(lastAnswer.correctAnswer) + '</strong>' +
-          '</div>';
-      } else if (lastAnswer && lastAnswer.correct) {
-        html += '<div style="margin-top:12px;padding:12px;background:rgba(78,201,122,0.12);border-radius:10px;border-left:4px solid var(--green);font-size:0.95rem">' +
-          '\u2713 Brawo! To <strong>' + esc(lastAnswer.correctAnswer) + '</strong>' +
-          '</div>';
-      }
+  // ---- TRYBY TEKSTOWE: persistent 3-panel layout ----
+  if (state.mode !== "map") {
+    // Inicjalizuj struktur\u0119 raz na rund\u0119
+    if (!document.getElementById('qp-top')) {
+      app.innerHTML =
+        '<div id="qp-top"></div>' +
+        '<div id="qp-map" class="quiz-map-panel"></div>' +
+        '<div id="qp-btns"></div>';
+      if (MAP_SVG) document.getElementById('qp-map').innerHTML = MAP_SVG;
     }
-  } else {
+
+    // G\u00f3rna cz\u0119\u015b\u0107: pytanie + opcje
     var questionLabel = state.mode === "capitals"
       ? 'Jaka jest stolica pa\u0144stwa <span>' + esc(q.question) + '</span>?'
       : 'Jakiego pa\u0144stwa stolic\u0105 jest <span>' + esc(q.question) + '</span>?';
-    html += '<div class="q-text">' + questionLabel + '</div><div class="options-grid">';
+
+    var topHtml = '<div class="container' + (!state.answered ? ' fade-in' : '') + '">' +
+      '<div class="question-header">' +
+        '<span class="q-counter">' + modeLabel + ' \u2014 Pytanie ' + (state.currentQ+1) + '/' + totalQ + '</span>' +
+        '<span class="q-score">Wynik: ' + score + '/' + state.currentQ + '</span>' +
+      '</div>' +
+      '<div class="progress-bar"><div class="progress-fill" style="width:' + progress + '%"></div></div>' +
+      '<div class="q-text">' + questionLabel + '</div>' +
+      '<div class="options-grid">';
     for (var i = 0; i < q.options.length; i++) {
       var opt = q.options[i];
       var cls = "option-btn";
@@ -613,51 +612,97 @@ function renderQuestion(app) {
         if (opt === q.answer) cls += " correct";
         else if (opt === state.selectedOption) cls += " wrong";
       }
-      html += '<button class="' + cls + '" data-idx="' + i + '">' + esc(opt) + '</button>';
+      topHtml += '<button class="' + cls + '" data-idx="' + i + '">' + esc(opt) + '</button>';
     }
-    html += '</div>';
+    topHtml += '</div></div>';
+    document.getElementById('qp-top').innerHTML = topHtml;
+
+    // Aktualizacja mapy
+    var mapEl = document.getElementById('qp-map');
+    var prevHL = mapEl.querySelectorAll('.country.correct, .country.wrong, .country.hint');
+    for (var hi = 0; hi < prevHL.length; hi++) prevHL[hi].classList.remove('correct', 'wrong', 'hint');
+    if (state.answered) {
+      var lastAns = state.answers[state.answers.length - 1];
+      var path = mapEl.querySelector('[data-iso="' + q.item.iso + '"]');
+      if (path) path.classList.add(lastAns.correct ? 'correct' : 'wrong');
+    }
+
+    // Przyciski
+    var btnsHtml = '<div class="container">';
+    if (state.answered) {
+      btnsHtml += '<div class="next-btn-area"><button class="btn btn-primary" id="nextBtn">Nast\u0119pne pytanie \u279C</button></div>';
+    }
+    btnsHtml += '<div class="abort-row"><button class="btn-abort" id="abortBtn">\u2715 Przerywam rund\u0119</button></div></div>';
+    document.getElementById('qp-btns').innerHTML = btnsHtml;
+
+    if (!state.answered) {
+      var buttons = document.querySelectorAll(".option-btn");
+      for (var b = 0; b < buttons.length; b++) {
+        (function(btn, idx){
+          btn.addEventListener("click", function(){
+            selectOption(state.questions[state.currentQ].options[idx]);
+          });
+        })(buttons[b], b);
+      }
+    }
+    var nextBtn = document.getElementById("nextBtn");
+    if (nextBtn) nextBtn.addEventListener("click", nextQuestion);
+    var abortBtn = document.getElementById("abortBtn");
+    if (abortBtn) abortBtn.addEventListener("click", abortGame);
+    return;
+  }
+
+  // ---- TRYB MAPY: oryginalne zachowanie ----
+  var html = '<div class="container fade-in">' +
+    '<div class="question-header">' +
+      '<span class="q-counter">' + modeLabel + ' \u2014 Pytanie ' + (state.currentQ+1) + '/' + totalQ + '</span>' +
+      '<span class="q-score">Wynik: ' + score + '/' + state.currentQ + '</span>' +
+    '</div>' +
+    '<div class="progress-bar"><div class="progress-fill" style="width:' + progress + '%"></div></div>';
+
+  html += '<div class="q-text">Gdzie znajduje si\u0119 stolica <span>' + esc(q.question) + '</span>?<br>' +
+    '<small style="color:var(--text2);font-size:0.85rem">Kliknij na odpowiedni kraj na mapie</small></div>' +
+    '<div class="map-container' + (state.answered ? ' answered' : '') + '" id="mapContainer">' +
+    MAP_SVG + '</div>';
+
+  if (state.answered) {
+    var lastAnswer = state.answers[state.answers.length - 1];
+    if (lastAnswer && !lastAnswer.correct) {
+      html += '<div style="margin-top:12px;padding:12px;background:rgba(232,85,85,0.1);border-radius:10px;border-left:4px solid var(--red);font-size:0.95rem">' +
+        'Twoja odpowied\u017a: <strong>' + esc(lastAnswer.userAnswer) + '</strong><br>' +
+        'Prawid\u0142owa odpowied\u017a: <strong style="color:var(--accent)">' + esc(lastAnswer.correctAnswer) + '</strong>' +
+        '</div>';
+    } else if (lastAnswer && lastAnswer.correct) {
+      html += '<div style="margin-top:12px;padding:12px;background:rgba(78,201,122,0.12);border-radius:10px;border-left:4px solid var(--green);font-size:0.95rem">' +
+        '\u2713 Brawo! To <strong>' + esc(lastAnswer.correctAnswer) + '</strong>' +
+        '</div>';
+    }
   }
 
   if (state.answered) {
     html += '<div class="next-btn-area"><button class="btn btn-primary" id="nextBtn">Nast\u0119pne pytanie \u279C</button></div>';
   }
-
-  html += '<div class="abort-row"><button class="btn-abort" id="abortBtn">\u2715 Przerywam rund\u0119</button></div>';
-
-  html += '</div>';
+  html += '<div class="abort-row"><button class="btn-abort" id="abortBtn">\u2715 Przerywam rund\u0119</button></div></div>';
   app.innerHTML = html;
 
-  if (state.mode === "map") {
-    var mapContainer = document.getElementById("mapContainer");
-    // Re-apply highlight classes from previous answer (after re-render)
-    if (state.mapHighlight) {
-      var h = state.mapHighlight;
-      if (h.clickedIso) {
-        var clicked = mapContainer.querySelector('[data-iso="' + h.clickedIso + '"]');
-        if (clicked) clicked.classList.add(h.correct ? "correct" : "wrong");
-      }
-      if (!h.correct && h.correctIso) {
-        var hint = mapContainer.querySelector('[data-iso="' + h.correctIso + '"]');
-        if (hint) hint.classList.add("hint");
-      }
+  var mapContainer = document.getElementById("mapContainer");
+  if (state.mapHighlight) {
+    var h = state.mapHighlight;
+    if (h.clickedIso) {
+      var clicked = mapContainer.querySelector('[data-iso="' + h.clickedIso + '"]');
+      if (clicked) clicked.classList.add(h.correct ? "correct" : "wrong");
     }
-    if (!state.answered) {
-      mapContainer.addEventListener("click", handleMapClick);
+    if (!h.correct && h.correctIso) {
+      var hintEl = mapContainer.querySelector('[data-iso="' + h.correctIso + '"]');
+      if (hintEl) hintEl.classList.add("hint");
     }
-  } else if (!state.answered) {
-    var buttons = document.querySelectorAll(".option-btn");
-    for (var b = 0; b < buttons.length; b++) {
-      (function(btn, idx){
-        btn.addEventListener("click", function(){
-          selectOption(state.questions[state.currentQ].options[idx]);
-        });
-      })(buttons[b], b);
-    }
+  }
+  if (!state.answered) {
+    mapContainer.addEventListener("click", handleMapClick);
   }
 
   var nextBtn = document.getElementById("nextBtn");
   if (nextBtn) nextBtn.addEventListener("click", nextQuestion);
-
   var abortBtn = document.getElementById("abortBtn");
   if (abortBtn) abortBtn.addEventListener("click", abortGame);
 }
