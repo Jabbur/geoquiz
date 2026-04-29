@@ -28,7 +28,7 @@
   --text2: #9aa8b8;
   --border: #2a3e52;
 }
-* { margin:0; padding:0; box-sizing:border-box; }
+* { margin:0; padding:0; box-sizing:border-box; -webkit-user-select:none; -webkit-touch-callout:none; user-select:none; }
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: var(--bg);
@@ -302,7 +302,7 @@ h1 {
 /* Prevent iOS text-size auto-adjust */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* Disable double-tap zoom delay on buttons */
-button, .mode-btn, .option-btn, .country { touch-action: manipulation; }
+button, .mode-btn, .option-btn, .country, .map-container, svg { touch-action: manipulation; }
 </style>
 </head>
 <body>
@@ -397,7 +397,7 @@ var state = {
   answers:[], allRounds:[], answered:false, mapHighlight:null, selectedOption:null, learnedThisRound:0
 };
 
-var lpTimer = null, lpIso = null, lpStartX = 0, lpStartY = 0;
+var lpTimer = null, lpDismissTimer = null, lpIso = null, lpStartX = 0, lpStartY = 0;
 
 function shuffle(arr) {
   var a = arr.slice();
@@ -876,30 +876,42 @@ function findNearestCountry(container, clientX, clientY) {
 }
 
 function dismissTooltip() {
+  if (lpDismissTimer !== null) { clearTimeout(lpDismissTimer); lpDismissTimer = null; }
   var t = document.getElementById('country-tooltip-el');
   if (!t) return;
-  t.style.transition = 'opacity 200ms ease';
+  t.style.transition = 'opacity 150ms ease';
   t.style.opacity = '0';
-  setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 200);
+  setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 150);
 }
 
 function showCountryTooltip(name, clientX, clientY) {
-  dismissTooltip();
-  var t = document.createElement('div');
-  t.id = 'country-tooltip-el';
-  t.className = 'country-tooltip';
-  t.textContent = name;
-  t.style.left = clientX + 'px';
-  t.style.top = clientY + 'px';
-  document.body.appendChild(t);
-  requestAnimationFrame(function() {
-    requestAnimationFrame(function() { t.classList.add('visible'); });
-  });
-  setTimeout(function() {
-    t.style.transition = 'opacity 200ms ease';
-    t.style.opacity = '0';
-    setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 200);
-  }, 1500);
+  if (lpDismissTimer !== null) { clearTimeout(lpDismissTimer); lpDismissTimer = null; }
+  var t = document.getElementById('country-tooltip-el');
+  if (t) {
+    // Instant replace: just update text and position
+    t.textContent = name;
+    t.style.left = clientX + 'px';
+    t.style.top = clientY + 'px';
+    t.style.transition = '';
+    t.style.opacity = '1';
+    t.classList.add('visible');
+  } else {
+    t = document.createElement('div');
+    t.id = 'country-tooltip-el';
+    t.className = 'country-tooltip';
+    t.textContent = name;
+    t.style.left = clientX + 'px';
+    t.style.top = clientY + 'px';
+    document.body.appendChild(t);
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() { t.classList.add('visible'); });
+    });
+  }
+}
+
+function scheduleDismissTooltip(delay) {
+  if (lpDismissTimer !== null) { clearTimeout(lpDismissTimer); lpDismissTimer = null; }
+  lpDismissTimer = setTimeout(function() { lpDismissTimer = null; dismissTooltip(); }, delay);
 }
 
 function getRepeatTargetIso(e) {
@@ -950,6 +962,11 @@ function handleRepeatPointerDown(e) {
   lpIso = iso;
   lpStartX = e.clientX;
   lpStartY = e.clientY;
+  var countryData = null;
+  for (var i = 0; i < DATA.length; i++) {
+    if (DATA[i].iso === iso) { countryData = DATA[i]; break; }
+  }
+  showCountryTooltip(countryData ? countryData.country : iso.toUpperCase(), e.clientX, e.clientY);
   lpTimer = setTimeout(function() {
     lpTimer = null;
     executeRepeatAnswer(lpIso);
@@ -957,16 +974,9 @@ function handleRepeatPointerDown(e) {
 }
 
 function handleRepeatPointerUp(e) {
-  if (lpTimer === null) return;
-  clearTimeout(lpTimer);
-  lpTimer = null;
-  if (!lpIso) return;
-  var countryData = null;
-  for (var i = 0; i < DATA.length; i++) {
-    if (DATA[i].iso === lpIso) { countryData = DATA[i]; break; }
-  }
-  showCountryTooltip(countryData ? countryData.country : lpIso.toUpperCase(), e.clientX, e.clientY);
+  if (lpTimer !== null) { clearTimeout(lpTimer); lpTimer = null; }
   lpIso = null;
+  scheduleDismissTooltip(1000);
 }
 
 function handleRepeatPointerMove(e) {
@@ -982,6 +992,7 @@ function handleRepeatPointerMove(e) {
 function handleRepeatPointerCancel(e) {
   if (lpTimer !== null) { clearTimeout(lpTimer); lpTimer = null; }
   lpIso = null;
+  scheduleDismissTooltip(1000);
 }
 
 function handleMapClick(e) {
