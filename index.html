@@ -114,6 +114,29 @@ h1 {
   line-height: 1.5;
 }
 .bonus-lost-banner small { color: var(--text2); font-size: 0.82rem; }
+.country-tooltip {
+  position: fixed;
+  background: rgba(10,22,30,0.95);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, calc(-100% - 12px));
+  opacity: 0;
+  transition: opacity 150ms ease;
+  white-space: nowrap;
+}
+.country-tooltip.visible { opacity: 1; }
+@keyframes repeatCountryPulse {
+  0%   { filter: brightness(1) drop-shadow(0 0 0px var(--accent)); }
+  40%  { filter: brightness(1.7) drop-shadow(0 0 6px var(--accent)); }
+  100% { filter: brightness(1) drop-shadow(0 0 0px var(--accent)); }
+}
+.country-pulse { animation: repeatCountryPulse 350ms ease; }
 .mode-icon {
   font-size: 2.4rem;
   width: 60px; height: 60px;
@@ -373,6 +396,8 @@ var state = {
   screen:"menu", mode:null, questions:[], currentQ:0,
   answers:[], allRounds:[], answered:false, mapHighlight:null, selectedOption:null, learnedThisRound:0
 };
+
+var lpTimer = null, lpIso = null, lpStartX = 0, lpStartY = 0;
 
 function shuffle(arr) {
   var a = arr.slice();
@@ -753,6 +778,11 @@ function renderQuestion(app) {
       '<div id="qp-btns"></div>';
     if (MAP_SVG) document.getElementById('mapContainer').innerHTML = MAP_SVG;
     document.getElementById('mapContainer').addEventListener('click', handleMapClick);
+    document.getElementById('mapContainer').addEventListener('pointerdown', handleRepeatPointerDown);
+    document.getElementById('mapContainer').addEventListener('pointerup', handleRepeatPointerUp);
+    document.getElementById('mapContainer').addEventListener('pointermove', handleRepeatPointerMove);
+    document.getElementById('mapContainer').addEventListener('pointercancel', handleRepeatPointerCancel);
+    document.getElementById('mapContainer').addEventListener('contextmenu', function(e){ e.preventDefault(); });
   }
 
   // Nag\u0142\u00f3wek + post\u0119p + pytanie
@@ -793,7 +823,9 @@ function renderQuestion(app) {
 
   // Panel z informacj\u0105 po odpowiedzi
   var feedbackHtml = '';
-  if (state.answered) {
+  if (!state.answered && state.mode === 'repeat' && state.answers.length === 0) {
+    feedbackHtml = '<div style="color:var(--text2);font-size:0.85rem;margin-top:8px;text-align:center">💡 Dotknij kraju żeby zobaczyć nazwę. Przytrzymaj żeby wybrać.</div>';
+  } else if (state.answered) {
     var lastAnswer = state.answers[state.answers.length - 1];
     if (lastAnswer && !lastAnswer.correct) {
       feedbackHtml = '<div style="margin-top:12px;padding:12px;background:rgba(232,85,85,0.1);border-radius:10px;border-left:4px solid var(--red);font-size:0.95rem">' +
@@ -843,7 +875,117 @@ function findNearestCountry(container, clientX, clientY) {
   return nearestDist <= 60 ? nearest : null;
 }
 
+function dismissTooltip() {
+  var t = document.getElementById('country-tooltip-el');
+  if (!t) return;
+  t.style.transition = 'opacity 200ms ease';
+  t.style.opacity = '0';
+  setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 200);
+}
+
+function showCountryTooltip(name, clientX, clientY) {
+  dismissTooltip();
+  var t = document.createElement('div');
+  t.id = 'country-tooltip-el';
+  t.className = 'country-tooltip';
+  t.textContent = name;
+  t.style.left = clientX + 'px';
+  t.style.top = clientY + 'px';
+  document.body.appendChild(t);
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() { t.classList.add('visible'); });
+  });
+  setTimeout(function() {
+    t.style.transition = 'opacity 200ms ease';
+    t.style.opacity = '0';
+    setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 200);
+  }, 1500);
+}
+
+function getRepeatTargetIso(e) {
+  var target = e.target;
+  while (target && target !== e.currentTarget && !target.dataset.iso) {
+    target = target.parentNode;
+  }
+  if (!target || !target.dataset || !target.dataset.iso) {
+    target = findNearestCountry(e.currentTarget, e.clientX, e.clientY);
+  }
+  return target ? target.dataset.iso : null;
+}
+
+function executeRepeatAnswer(iso) {
+  if (state.answered) return;
+  dismissTooltip();
+  if (navigator.vibrate) navigator.vibrate(50);
+  var mapContainer = document.getElementById('mapContainer');
+  var el = mapContainer ? mapContainer.querySelector('[data-iso="' + iso + '"]') : null;
+  if (el) {
+    el.classList.add('country-pulse');
+    setTimeout(function() { el.classList.remove('country-pulse'); }, 350);
+  }
+  playClick();
+  var q = state.questions[state.currentQ];
+  var isCorrect = iso === q.answer;
+  var clickedData = null;
+  for (var i = 0; i < DATA.length; i++) {
+    if (DATA[i].iso === iso) { clickedData = DATA[i]; break; }
+  }
+  var clickedName = clickedData ? clickedData.country : iso.toUpperCase();
+  state.answered = true;
+  state.mapHighlight = { clickedIso: iso, correct: isCorrect, correctIso: q.answer };
+  state.answers.push({
+    question: q.question, correct: isCorrect,
+    userAnswer: clickedName, correctAnswer: q.item.country, item: q.item
+  });
+  var learned = recordAnswer(q.item.iso, isCorrect);
+  if (learned) state.learnedThisRound++;
+  render();
+}
+
+function handleRepeatPointerDown(e) {
+  if (state.mode !== 'repeat' || state.answered) return;
+  var iso = getRepeatTargetIso(e);
+  if (!iso) return;
+  e.currentTarget.setPointerCapture(e.pointerId);
+  lpIso = iso;
+  lpStartX = e.clientX;
+  lpStartY = e.clientY;
+  lpTimer = setTimeout(function() {
+    lpTimer = null;
+    executeRepeatAnswer(lpIso);
+  }, 500);
+}
+
+function handleRepeatPointerUp(e) {
+  if (lpTimer === null) return;
+  clearTimeout(lpTimer);
+  lpTimer = null;
+  if (!lpIso) return;
+  var countryData = null;
+  for (var i = 0; i < DATA.length; i++) {
+    if (DATA[i].iso === lpIso) { countryData = DATA[i]; break; }
+  }
+  showCountryTooltip(countryData ? countryData.country : lpIso.toUpperCase(), e.clientX, e.clientY);
+  lpIso = null;
+}
+
+function handleRepeatPointerMove(e) {
+  if (lpTimer === null) return;
+  var dx = e.clientX - lpStartX, dy = e.clientY - lpStartY;
+  if (Math.sqrt(dx * dx + dy * dy) > 12) {
+    clearTimeout(lpTimer);
+    lpTimer = null;
+    lpIso = null;
+  }
+}
+
+function handleRepeatPointerCancel(e) {
+  if (lpTimer !== null) { clearTimeout(lpTimer); lpTimer = null; }
+  lpIso = null;
+}
+
 function handleMapClick(e) {
+  if (state.mode === 'repeat') return;
   if (state.answered) return;
   // Find the closest <path> ancestor with data-iso (event might fire on inner shape)
   var target = e.target;
