@@ -45,6 +45,10 @@ Jeśli zmiana dotyczy UX, mechaniki gry, struktury danych lub czegoś z więcej 
 * Nie tłumacz oczywistego — zakładaj, że rozumiem podstawy programowania
 * Komunikuj się po polsku
 
+### Kodowanie
+Plik index.html jest w UTF-8 bez BOM. NIE wstawiaj escape'ów \uXXXX dla polskich znaków, emoji ani strzałek - używaj 
+znaków bezpośrednio. Do edycji używaj natywnego tool'a edycyjnego, nie PowerShella.
+
 ### Po akceptacji rozwiązania
 
 1. Wprowadź zmiany w kodzie
