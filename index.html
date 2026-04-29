@@ -103,6 +103,17 @@ h1 {
 }
 .mode-btn-disabled { opacity: 0.45; cursor: default; }
 .mode-btn-disabled:hover { background: var(--card); border-color: var(--border); transform: none; box-shadow: none; }
+.bonus-lost-banner {
+  background: rgba(232,184,75,0.12);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 8px 0 4px;
+  font-size: 0.9rem;
+  color: var(--accent);
+  line-height: 1.5;
+}
+.bonus-lost-banner small { color: var(--text2); font-size: 0.82rem; }
 .mode-icon {
   font-size: 2.4rem;
   width: 60px; height: 60px;
@@ -341,15 +352,17 @@ function saveErrors(pool) {
 }
 function recordAnswer(iso, isCorrect) {
   var pool = loadErrors();
+  var learned = false;
   if (!isCorrect) {
     if (!pool[iso]) pool[iso] = { wrong: 0, streak: 0 };
     pool[iso].wrong++;
     pool[iso].streak = 0;
   } else if (pool[iso]) {
     pool[iso].streak++;
-    if (pool[iso].streak >= 2) delete pool[iso];
+    if (pool[iso].streak >= 2) { delete pool[iso]; learned = true; }
   }
   saveErrors(pool);
+  return learned;
 }
 function getRepeatCount() {
   var pool = loadErrors();
@@ -358,7 +371,7 @@ function getRepeatCount() {
 
 var state = {
   screen:"menu", mode:null, questions:[], currentQ:0,
-  answers:[], allRounds:[], answered:false, mapHighlight:null, selectedOption:null
+  answers:[], allRounds:[], answered:false, mapHighlight:null, selectedOption:null, learnedThisRound:0
 };
 
 function shuffle(arr) {
@@ -375,7 +388,7 @@ function generateQuestions(mode) {
     var errors = loadErrors();
     var playableIsos = Object.keys(errors).filter(function(iso){ return MAP_EXCLUDED_ISO.indexOf(iso) === -1; });
     var playable = DATA.filter(function(d){ return playableIsos.indexOf(d.iso) !== -1; });
-    var selected = shuffle(playable).slice(0, Math.min(8, playable.length));
+    var selected = shuffle(playable);
     return selected.map(function(item){
       return {item:item, question:item.capital, answer:item.iso, options:null};
     });
@@ -421,10 +434,12 @@ function render() {
 
 function renderMenu(app) {
   var repeatCount = getRepeatCount();
-  var repeatDisabled = repeatCount === 0;
-  var repeatDesc = repeatDisabled
+  var repeatDisabled = repeatCount < 3;
+  var repeatDesc = repeatCount === 0
     ? 'Brak błędów do poprawy 🎉'
-    : 'Ćwicz kraje, w których się mylisz · ' + repeatCount + ' ' + (repeatCount === 1 ? 'kraj' : repeatCount < 5 ? 'kraje' : 'krajów');
+    : repeatCount < 3
+      ? 'Zbierz jeszcze ' + (3 - repeatCount) + ((3 - repeatCount) === 1 ? ' błąd' : ' błędy') + ' żeby odblokować 🔒'
+      : 'Ćwicz kraje, w których się mylisz · ' + repeatCount + ' ' + (repeatCount === 1 ? 'kraj' : repeatCount < 5 ? 'kraje' : 'krajów');
   app.innerHTML =
     '<div class="container fade-in">' +
       '<div class="compass">\uD83E\uDDED</div>' +
@@ -613,6 +628,7 @@ function startGame(mode) {
   state.answered = false;
   state.mapHighlight = null;
   state.selectedOption = null;
+  state.learnedThisRound = 0;
   state.screen = "playing";
   render();
 }
@@ -740,6 +756,10 @@ function renderQuestion(app) {
   }
 
   // Nag\u0142\u00f3wek + post\u0119p + pytanie
+  var wrongInRound = state.answers.filter(function(a){return !a.correct;}).length;
+  var bonusBanner = (state.mode === 'repeat' && wrongInRound >= 2)
+    ? '<div class="bonus-lost-banner">\u26a0 Utrata bonusu \u2014 ta runda nie liczy si\u0119 do punktacji.<br><small>Ucz si\u0119 dalej \u2014 ka\u017cda poprawna odpowied\u017a wci\u0105\u017c usuwa kraj z puli.</small></div>'
+    : '';
   document.getElementById('qp-top').innerHTML =
     '<div class="container">' +
       '<div class="question-header">' +
@@ -747,6 +767,7 @@ function renderQuestion(app) {
         '<span class="q-score">Wynik: ' + score + '/' + state.currentQ + '</span>' +
       '</div>' +
       '<div class="progress-bar"><div class="progress-fill" style="width:' + progress + '%"></div></div>' +
+      bonusBanner +
       '<div class="q-text">Gdzie znajduje si\u0119 stolica <span>' + esc(q.question) + '</span>?<br>' +
         '<small style="color:var(--text2);font-size:0.85rem">Kliknij na odpowiedni kraj na mapie</small></div>' +
     '</div>';
@@ -865,7 +886,8 @@ function handleMapClick(e) {
     correctAnswer: q.item.country,
     item: q.item
   });
-  recordAnswer(q.item.iso, isCorrect);
+  var learned = recordAnswer(q.item.iso, isCorrect);
+  if (learned && state.mode === 'repeat') state.learnedThisRound++;
   render();
 }
 
@@ -889,7 +911,7 @@ function nextQuestion() {
   state.mapHighlight = null;
   state.selectedOption = null;
   if (state.currentQ >= state.questions.length) {
-    state.allRounds.push({mode:state.mode, answers:state.answers.slice()});
+    state.allRounds.push({mode:state.mode, answers:state.answers.slice(), learnedThisRound:state.learnedThisRound});
     state.screen = "results";
   }
   render();
@@ -899,7 +921,49 @@ function renderResults(app) {
   var lastRound = state.allRounds[state.allRounds.length - 1];
   var score = lastRound.answers.filter(function(a){return a.correct;}).length;
   var modeNames = {capitals:"Stolice",countries:"Pa\u0144stwa",map:"Mapa",repeat:"Powt\u00f3rka"};
-  var emoji = score>=9?"\uD83C\uDFC6":score>=7?"\uD83C\uDF89":score>=5?"\uD83D\uDC4D":"\uD83D\uDCDA";
+
+  if (lastRound.mode === 'repeat') {
+    var rWrong = lastRound.answers.filter(function(a){return !a.correct;}).length;
+    var rPoints = calculateRoundPoints(lastRound);
+    var bonusLost = rWrong >= 2;
+    var learned = lastRound.learnedThisRound || 0;
+    var pctR = lastRound.answers.length > 0 ? Math.round((score / lastRound.answers.length) * 100) : 0;
+    var emojiR = bonusLost ? "\ud83d\ude24" : pctR === 100 ? "\ud83c\udfc6" : pctR >= 75 ? "\ud83c\udf89" : "\ud83d\udcaa";
+    var msgR = bonusLost ? "Dwa b\u0142\u0119dy \u2014 bonus utracony!" : pctR === 100 ? "Perfekcja! Brawo Ignacy!" : pctR >= 75 ? "Nie\u017ale! \u0106wicz dalej!" : "Powr\u00f3\u0107 do tych kraj\u00f3w jeszcze raz!";
+    var learnedLabel = learned === 1 ? "Kraj nauczony" : "Kraje nauczone";
+    var rHtml = '<div class="container fade-in">' +
+      '<div class="score-display">' +
+        '<div style="font-size:3rem">' + emojiR + '</div>' +
+        '<div class="score-big"><span class="good">' + score + '</span><span class="sep"> / </span>' + lastRound.answers.length + '</div>' +
+        '<div class="score-label">' + msgR + '</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0">' +
+        '<div class="stat-card"><div class="stat-number" style="color:' + (bonusLost ? 'var(--red)' : 'var(--accent)') + ';font-size:' + (bonusLost ? '1rem' : '2rem') + '">' +
+          (bonusLost ? 'Bonus utracony' : rPoints + ' pkt') +
+        '</div><div class="stat-label">Punkty z rundy</div></div>' +
+        '<div class="stat-card"><div class="stat-number" style="color:var(--green)">' + learned + '</div><div class="stat-label">' + learnedLabel + '</div></div>' +
+      '</div>' +
+      '<div class="results-list">';
+    for (var i = 0; i < lastRound.answers.length; i++) {
+      var a = lastRound.answers[i];
+      var cls = a.correct ? "correct" : "wrong";
+      var icon = a.correct ? "\u2705" : "\u274c";
+      var detail = a.correct
+        ? '<span class="correct-answer">' + esc(a.correctAnswer) + '</span>'
+        : '<span class="wrong-answer">' + esc(a.userAnswer) + '</span> \u2192 <span class="correct-answer">' + esc(a.correctAnswer) + '</span>';
+      rHtml += '<div class="result-item ' + cls + '"><div class="result-icon">' + icon + '</div><div class="result-text"><div class="question-label">' + (i+1) + '. Stolica: ' + esc(a.question) + '</div><div>' + detail + '</div></div></div>';
+    }
+    rHtml += '</div><div class="btn-row">' +
+      '<button class="btn btn-primary" id="retryBtn">Gram dalej</button>' +
+      '<button class="btn btn-secondary" id="summaryBtn">Ko\u0144cz\u0119</button>' +
+      '</div></div>';
+    app.innerHTML = rHtml;
+    document.getElementById("retryBtn").addEventListener("click", function(){ state.screen="menu"; render(); });
+    document.getElementById("summaryBtn").addEventListener("click", function(){ state.screen="summary"; render(); });
+    return;
+  }
+
+  var emoji =score>=9?"\uD83C\uDFC6":score>=7?"\uD83C\uDF89":score>=5?"\uD83D\uDC4D":"\uD83D\uDCDA";
   var message = score>=9?"Ignacy, super!":score>=7?"Bardzo dobrze Ignacy!":score>=5?"Nie\u017ale!":"Młody, po\u0107wicz jeszcze!";
 
   var html = '<div class="container fade-in">' +
@@ -940,13 +1004,28 @@ function renderResults(app) {
 // - 4 or more wrong (any mode): round score = 0
 // - Result is never negative
 function calculateRoundPoints(round) {
+  if (round.mode === 'repeat') {
+    var wrong = 0;
+    for (var i = 0; i < round.answers.length; i++) { if (!round.answers[i].correct) wrong++; }
+    if (wrong >= 2) return 0;
+    var correct = 0, streak = 0, bonus = 0;
+    for (var i = 0; i < round.answers.length; i++) {
+      if (round.answers[i].correct) {
+        correct++; streak++;
+        if (streak === 5) { bonus++; streak = 0; }
+      } else {
+        streak = 0;
+      }
+    }
+    return correct * 0.5 + bonus;
+  }
   var correct = 0, wrong = 0;
   for (var i = 0; i < round.answers.length; i++) {
     if (round.answers[i].correct) correct++;
     else wrong++;
   }
   if (wrong >= 4) return 0;
-  var isMap = round.mode === "map" || round.mode === "repeat";
+  var isMap = round.mode === "map";
   var perCorrect = isMap ? 1 : 0.5;
   // Map: penalty grows progressively (1, 3, 6) -> wrong*(wrong+1)/2
   // Text: flat 0.5 per error (0.5, 1, 1.5) -> wrong * 0.5
@@ -1019,6 +1098,10 @@ function renderSummary(app) {
   var totalWrong = totalQ - totalCorrect;
   var pct = totalQ > 0 ? Math.round((totalCorrect / totalQ) * 100) : 0;
   var totalPoints = calculateTotalPoints(state.allRounds);
+  var repeatPoints = 0;
+  for (var r = 0; r < state.allRounds.length; r++) {
+    if (state.allRounds[r].mode === 'repeat') repeatPoints += calculateRoundPoints(state.allRounds[r]);
+  }
   var modeNames = {capitals:"Stolice",countries:"Pa\u0144stwa",map:"Mapa",repeat:"Powt\u00f3rka"};
 
   var html = '<div class="container fade-in">' +
@@ -1032,7 +1115,7 @@ function renderSummary(app) {
     '</div>' +
     '<div class="score-display" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center">' +
       '<div><div class="score-big"><span class="good">' + pct + '%</span></div><div class="score-label">Skuteczno\u015b\u0107 og\u00f3lna</div></div>' +
-      '<div><div class="score-big"><span class="good">' + totalPoints + '</span></div><div class="score-label">Wygrany czas</div></div>' +
+      '<div><div class="score-big"><span class="good">' + totalPoints + '</span></div><div class="score-label">Wygrany czas</div>' + (repeatPoints > 0 ? '<div style="font-size:0.8rem;color:var(--text2);margin-top:4px">z czego z powtórki: ' + repeatPoints + ' pkt</div>' : '') + '</div>' +
     '</div>';
 
   for (var ri = 0; ri < state.allRounds.length; ri++) {

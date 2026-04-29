@@ -28,6 +28,18 @@ Interaktywny quiz geograficzny o krajach i stolicach Europy. Aplikacja działa j
 | Stolice | 12 |
 | Państwa | 12 |
 | Wskaż na mapie | 8 |
+| Powtórka błędów | = rozmiar puli (min. 3, bez górnego limitu) |
+
+## Punktacja w trybie powtórki
+
+* **Próg dostępności:** tryb odblokowany gdy pula błędów ≥ 3 krajów
+* **Źródło pytań:** wszystkie kraje z puli błędów (localStorage `geoquiz_errors`), format mapowy (wskaż kraj)
+* **+0.5 pkt** za każdą poprawną odpowiedź
+* **+1 pkt bonus** za każde 5 poprawnych odpowiedzi z rzędu (seria resetuje się po błędzie)
+* **≥ 2 błędy w rundzie → punkty rundy = 0** (runda dalej trwa — poprawne odpowiedzi wciąż uczą)
+* Po 2. błędzie pojawia się baner „Utrata bonusu" (widoczny przez resztę rundy)
+* **Nauka:** kraj znika z puli po 2 poprawnych odpowiedziach z rzędu (`streak >= 2`), nawet jeśli seria zaczęła się w poprzedniej sesji
+* Punkty z powtórki wchodzą do sumy „Wygrany czas"; w podsumowaniu sesji pokazywane jest rozbicie „z czego z powtórki: X pkt"
 
 ## Sposób pracy
 
