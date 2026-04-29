@@ -101,6 +101,8 @@ h1 {
   transform: translateY(-2px);
   box-shadow: 0 8px 30px rgba(232,184,75,0.15);
 }
+.mode-btn-disabled { opacity: 0.45; cursor: default; }
+.mode-btn-disabled:hover { background: var(--card); border-color: var(--border); transform: none; box-shadow: none; }
 .mode-icon {
   font-size: 2.4rem;
   width: 60px; height: 60px;
@@ -331,6 +333,29 @@ var DATA = [
 ];
 
 
+function loadErrors() {
+  try { return JSON.parse(localStorage.getItem('geoquiz_errors') || '{}'); } catch(e) { return {}; }
+}
+function saveErrors(pool) {
+  try { localStorage.setItem('geoquiz_errors', JSON.stringify(pool)); } catch(e) {}
+}
+function recordAnswer(iso, isCorrect) {
+  var pool = loadErrors();
+  if (!isCorrect) {
+    if (!pool[iso]) pool[iso] = { wrong: 0, streak: 0 };
+    pool[iso].wrong++;
+    pool[iso].streak = 0;
+  } else if (pool[iso]) {
+    pool[iso].streak++;
+    if (pool[iso].streak >= 2) delete pool[iso];
+  }
+  saveErrors(pool);
+}
+function getRepeatCount() {
+  var pool = loadErrors();
+  return Object.keys(pool).filter(function(iso){ return MAP_EXCLUDED_ISO.indexOf(iso) === -1; }).length;
+}
+
 var state = {
   screen:"menu", mode:null, questions:[], currentQ:0,
   answers:[], allRounds:[], answered:false, mapHighlight:null, selectedOption:null
@@ -346,6 +371,15 @@ function shuffle(arr) {
 }
 
 function generateQuestions(mode) {
+  if (mode === "repeat") {
+    var errors = loadErrors();
+    var playableIsos = Object.keys(errors).filter(function(iso){ return MAP_EXCLUDED_ISO.indexOf(iso) === -1; });
+    var playable = DATA.filter(function(d){ return playableIsos.indexOf(d.iso) !== -1; });
+    var selected = shuffle(playable).slice(0, Math.min(8, playable.length));
+    return selected.map(function(item){
+      return {item:item, question:item.capital, answer:item.iso, options:null};
+    });
+  }
   var pool = DATA.slice();
   if (mode === "map") pool = pool.filter(function(d){return MAP_EXCLUDED_ISO.indexOf(d.iso)===-1;});
   var selected = shuffle(pool).slice(0, mode === "map" ? 8 : 12);
@@ -359,7 +393,6 @@ function generateQuestions(mode) {
       var opts = shuffle([item.country].concat(wrongItems.map(function(w){return w.country;})));
       return {item:item, question:item.capital, answer:item.country, options:opts};
     } else {
-      // Map mode: answer is the ISO code, click handler reads data-iso
       return {item:item, question:item.capital, answer:item.iso, options:null};
     }
   });
@@ -387,6 +420,11 @@ function render() {
 }
 
 function renderMenu(app) {
+  var repeatCount = getRepeatCount();
+  var repeatDisabled = repeatCount === 0;
+  var repeatDesc = repeatDisabled
+    ? 'Brak błędów do poprawy 🎉'
+    : 'Ćwicz kraje, w których się mylisz · ' + repeatCount + ' ' + (repeatCount === 1 ? 'kraj' : repeatCount < 5 ? 'kraje' : 'krajów');
   app.innerHTML =
     '<div class="container fade-in">' +
       '<div class="compass">\uD83E\uDDED</div>' +
@@ -408,11 +446,19 @@ function renderMenu(app) {
           '<div><div class="mode-title">Wska\u017c na mapie</div>' +
           '<div class="mode-desc">Dostajesz stolic\u0119 \u2014 kliknij na odpowiedni kraj na mapie</div></div>' +
         '</div>' +
+        '<div class="mode-btn' + (repeatDisabled ? ' mode-btn-disabled' : '') + '" id="mRepeat">' +
+          '<div class="mode-icon">\uD83C\uDFAF</div>' +
+          '<div><div class="mode-title">Powt\u00F3rka b\u0142\u0119d\u00F3w</div>' +
+          '<div class="mode-desc">' + repeatDesc + '</div></div>' +
+        '</div>' +
       '</div>' +
     '</div>';
   document.getElementById("mCapitals").addEventListener("click", function(){startGame("capitals");});
   document.getElementById("mCountries").addEventListener("click", function(){startGame("countries");});
   document.getElementById("mMap").addEventListener("click", function(){startGame("map");});
+  if (!repeatDisabled) {
+    document.getElementById("mRepeat").addEventListener("click", function(){startGame("repeat");});
+  }
 }
 
 // =========================================================================
@@ -556,7 +602,7 @@ function startConfetti() {
 }
 
 function startGame(mode) {
-  if (mode === 'map' && !MAP_SVG) {
+  if ((mode === 'map' || mode === 'repeat') && !MAP_SVG) {
     setTimeout(function(){startGame(mode);}, 200);
     return;
   }
@@ -597,10 +643,10 @@ function renderQuestion(app) {
   var totalQ = state.questions.length;
   var progress = (state.currentQ / totalQ) * 100;
   var score = state.answers.filter(function(a){return a.correct;}).length;
-  var modeLabel = state.mode==="capitals"?"Stolice":state.mode==="countries"?"Pa\u0144stwa":"Mapa";
+  var modeLabel = state.mode==="capitals"?"Stolice":state.mode==="countries"?"Pa\u0144stwa":state.mode==="repeat"?"Powt\u00f3rka":"Mapa";
 
   // ---- TRYBY TEKSTOWE: persistent 3-panel layout ----
-  if (state.mode !== "map") {
+  if (state.mode !== "map" && state.mode !== "repeat") {
     // Inicjalizuj struktur\u0119 raz na rund\u0119
     if (!document.getElementById('qp-top')) {
       app.innerHTML =
@@ -819,6 +865,7 @@ function handleMapClick(e) {
     correctAnswer: q.item.country,
     item: q.item
   });
+  recordAnswer(q.item.iso, isCorrect);
   render();
 }
 
@@ -832,6 +879,7 @@ function selectOption(opt) {
     question: q.question, correct: opt === q.answer,
     userAnswer: opt, correctAnswer: q.answer, item: q.item
   });
+  recordAnswer(q.item.iso, opt === q.answer);
   render();
 }
 
@@ -850,7 +898,7 @@ function nextQuestion() {
 function renderResults(app) {
   var lastRound = state.allRounds[state.allRounds.length - 1];
   var score = lastRound.answers.filter(function(a){return a.correct;}).length;
-  var modeNames = {capitals:"Stolice",countries:"Pa\u0144stwa",map:"Mapa"};
+  var modeNames = {capitals:"Stolice",countries:"Pa\u0144stwa",map:"Mapa",repeat:"Powt\u00f3rka"};
   var emoji = score>=9?"\uD83C\uDFC6":score>=7?"\uD83C\uDF89":score>=5?"\uD83D\uDC4D":"\uD83D\uDCDA";
   var message = score>=9?"Ignacy, super!":score>=7?"Bardzo dobrze Ignacy!":score>=5?"Nie\u017ale!":"Młody, po\u0107wicz jeszcze!";
 
@@ -898,7 +946,7 @@ function calculateRoundPoints(round) {
     else wrong++;
   }
   if (wrong >= 4) return 0;
-  var isMap = round.mode === "map";
+  var isMap = round.mode === "map" || round.mode === "repeat";
   var perCorrect = isMap ? 1 : 0.5;
   // Map: penalty grows progressively (1, 3, 6) -> wrong*(wrong+1)/2
   // Text: flat 0.5 per error (0.5, 1, 1.5) -> wrong * 0.5
@@ -971,7 +1019,7 @@ function renderSummary(app) {
   var totalWrong = totalQ - totalCorrect;
   var pct = totalQ > 0 ? Math.round((totalCorrect / totalQ) * 100) : 0;
   var totalPoints = calculateTotalPoints(state.allRounds);
-  var modeNames = {capitals:"Stolice",countries:"Pa\u0144stwa",map:"Mapa"};
+  var modeNames = {capitals:"Stolice",countries:"Pa\u0144stwa",map:"Mapa",repeat:"Powt\u00f3rka"};
 
   var html = '<div class="container fade-in">' +
     '<div class="compass" style="animation:none">\uD83D\uDCCA</div>' +
