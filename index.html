@@ -680,59 +680,79 @@ function renderQuestion(app) {
     return;
   }
 
-  // ---- TRYB MAPY: oryginalne zachowanie ----
-  var html = '<div class="container fade-in">' +
-    '<div class="question-header">' +
-      '<span class="q-counter">' + modeLabel + ' \u2014 Pytanie ' + (state.currentQ+1) + '/' + totalQ + '</span>' +
-      '<span class="q-score">Wynik: ' + score + '/' + state.currentQ + '</span>' +
-    '</div>' +
-    '<div class="progress-bar"><div class="progress-fill" style="width:' + progress + '%"></div></div>';
-
-  html += '<div class="q-text">Gdzie znajduje si\u0119 stolica <span>' + esc(q.question) + '</span>?<br>' +
-    '<small style="color:var(--text2);font-size:0.85rem">Kliknij na odpowiedni kraj na mapie</small></div>' +
-    '<div class="map-container' + (state.answered ? ' answered' : '') + '" id="mapContainer">' +
-    MAP_SVG + '</div>';
-
-  if (state.answered) {
-    var lastAnswer = state.answers[state.answers.length - 1];
-    if (lastAnswer && !lastAnswer.correct) {
-      html += '<div style="margin-top:12px;padding:12px;background:rgba(232,85,85,0.1);border-radius:10px;border-left:4px solid var(--red);font-size:0.95rem">' +
-        'Twoja odpowied\u017a: <strong>' + esc(lastAnswer.userAnswer) + '</strong><br>' +
-        'Prawid\u0142owa odpowied\u017a: <strong style="color:var(--accent)">' + esc(lastAnswer.correctAnswer) + '</strong>' +
-        '</div>';
-    } else if (lastAnswer && lastAnswer.correct) {
-      html += '<div style="margin-top:12px;padding:12px;background:rgba(78,201,122,0.12);border-radius:10px;border-left:4px solid var(--green);font-size:0.95rem">' +
-        '\u2713 Brawo! To <strong>' + esc(lastAnswer.correctAnswer) + '</strong>' +
-        '</div>';
-    }
+  // ---- TRYB MAPY: persistent layout ----
+  if (!document.getElementById('qp-top')) {
+    app.innerHTML =
+      '<div id="qp-top"></div>' +
+      '<div class="container" style="padding-top:0" id="qp-map-section">' +
+        '<div class="map-container" id="mapContainer"></div>' +
+        '<div id="qp-feedback"></div>' +
+      '</div>' +
+      '<div id="qp-btns"></div>';
+    if (MAP_SVG) document.getElementById('mapContainer').innerHTML = MAP_SVG;
+    document.getElementById('mapContainer').addEventListener('click', handleMapClick);
   }
 
-  if (state.answered) {
-    html += '<div class="next-btn-area"><button class="btn btn-primary" id="nextBtn">Nast\u0119pne pytanie \u279C</button></div>';
-  }
-  html += '<div class="abort-row"><button class="btn-abort" id="abortBtn">\u2715 Przerywam rund\u0119</button></div></div>';
-  app.innerHTML = html;
+  // Nag\u0142\u00f3wek + post\u0119p + pytanie
+  document.getElementById('qp-top').innerHTML =
+    '<div class="container">' +
+      '<div class="question-header">' +
+        '<span class="q-counter">' + modeLabel + ' \u2014 Pytanie ' + (state.currentQ+1) + '/' + totalQ + '</span>' +
+        '<span class="q-score">Wynik: ' + score + '/' + state.currentQ + '</span>' +
+      '</div>' +
+      '<div class="progress-bar"><div class="progress-fill" style="width:' + progress + '%"></div></div>' +
+      '<div class="q-text">Gdzie znajduje si\u0119 stolica <span>' + esc(q.question) + '</span>?<br>' +
+        '<small style="color:var(--text2);font-size:0.85rem">Kliknij na odpowiedni kraj na mapie</small></div>' +
+    '</div>';
 
-  var mapContainer = document.getElementById("mapContainer");
+  // Mapa: toggle klasy answered + aktualizacja pod\u015bwietle\u0144
+  var mapContainer = document.getElementById('mapContainer');
+  if (state.answered) mapContainer.classList.add('answered');
+  else mapContainer.classList.remove('answered');
+
+  var prevHL = mapContainer.querySelectorAll('.country.correct, .country.wrong, .country.hint');
+  for (var hi = 0; hi < prevHL.length; hi++) prevHL[hi].classList.remove('correct', 'wrong', 'hint');
   if (state.mapHighlight) {
     var h = state.mapHighlight;
     if (h.clickedIso) {
       var clicked = mapContainer.querySelector('[data-iso="' + h.clickedIso + '"]');
-      if (clicked) clicked.classList.add(h.correct ? "correct" : "wrong");
+      if (clicked) clicked.classList.add(h.correct ? 'correct' : 'wrong');
     }
     if (!h.correct && h.correctIso) {
       var hintEl = mapContainer.querySelector('[data-iso="' + h.correctIso + '"]');
-      if (hintEl) hintEl.classList.add("hint");
+      if (hintEl) hintEl.classList.add('hint');
     }
   }
-  if (!state.answered) {
-    mapContainer.addEventListener("click", handleMapClick);
-  }
 
-  var nextBtn = document.getElementById("nextBtn");
-  if (nextBtn) nextBtn.addEventListener("click", nextQuestion);
-  var abortBtn = document.getElementById("abortBtn");
-  if (abortBtn) abortBtn.addEventListener("click", abortGame);
+  // Panel z informacj\u0105 po odpowiedzi
+  var feedbackHtml = '';
+  if (state.answered) {
+    var lastAnswer = state.answers[state.answers.length - 1];
+    if (lastAnswer && !lastAnswer.correct) {
+      feedbackHtml = '<div style="margin-top:12px;padding:12px;background:rgba(232,85,85,0.1);border-radius:10px;border-left:4px solid var(--red);font-size:0.95rem">' +
+        'Twoja odpowied\u017a: <strong>' + esc(lastAnswer.userAnswer) + '</strong><br>' +
+        'Prawid\u0142owa odpowied\u017a: <strong style="color:var(--accent)">' + esc(lastAnswer.correctAnswer) + '</strong>' +
+        '</div>';
+    } else if (lastAnswer && lastAnswer.correct) {
+      feedbackHtml = '<div style="margin-top:12px;padding:12px;background:rgba(78,201,122,0.12);border-radius:10px;border-left:4px solid var(--green);font-size:0.95rem">' +
+        '\u2713 Brawo! To <strong>' + esc(lastAnswer.correctAnswer) + '</strong>' +
+        '</div>';
+    }
+  }
+  document.getElementById('qp-feedback').innerHTML = feedbackHtml;
+
+  // Przyciski
+  var btnsHtml = '<div class="container">';
+  if (state.answered) {
+    btnsHtml += '<div class="next-btn-area"><button class="btn btn-primary" id="nextBtn">Nast\u0119pne pytanie \u279C</button></div>';
+  }
+  btnsHtml += '<div class="abort-row"><button class="btn-abort" id="abortBtn">\u2715 Przerywam rund\u0119</button></div></div>';
+  document.getElementById('qp-btns').innerHTML = btnsHtml;
+
+  var nextBtn = document.getElementById('nextBtn');
+  if (nextBtn) nextBtn.addEventListener('click', nextQuestion);
+  var abortBtn = document.getElementById('abortBtn');
+  if (abortBtn) abortBtn.addEventListener('click', abortGame);
 }
 
 // Find the country whose bounding-box center is closest to the click point.
