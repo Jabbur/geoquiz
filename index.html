@@ -573,6 +573,14 @@ function abortGame() {
   render();
 }
 
+function getIsoFromAnswer(answer, mode) {
+  for (var i = 0; i < DATA.length; i++) {
+    if (mode === 'countries' && DATA[i].country === answer) return DATA[i].iso;
+    if (mode === 'capitals' && DATA[i].capital === answer) return DATA[i].iso;
+  }
+  return null;
+}
+
 function renderQuestion(app) {
   var q = state.questions[state.currentQ];
   var totalQ = state.questions.length;
@@ -623,8 +631,17 @@ function renderQuestion(app) {
     for (var hi = 0; hi < prevHL.length; hi++) prevHL[hi].classList.remove('correct', 'wrong', 'hint');
     if (state.answered) {
       var lastAns = state.answers[state.answers.length - 1];
-      var path = mapEl.querySelector('[data-iso="' + q.item.iso + '"]');
-      if (path) path.classList.add(lastAns.correct ? 'correct' : 'wrong');
+      var correctPath = mapEl.querySelector('[data-iso="' + q.item.iso + '"]');
+      if (lastAns.correct) {
+        if (correctPath) correctPath.classList.add('correct');
+      } else {
+        if (correctPath) correctPath.classList.add('correct');
+        var wrongIso = getIsoFromAnswer(lastAns.userAnswer, state.mode);
+        if (wrongIso && wrongIso !== q.item.iso) {
+          var wrongPath = mapEl.querySelector('[data-iso="' + wrongIso + '"]');
+          if (wrongPath) wrongPath.classList.add('wrong');
+        }
+      }
     }
 
     // Przyciski
