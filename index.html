@@ -397,7 +397,7 @@ var state = {
   answers:[], allRounds:[], answered:false, mapHighlight:null, selectedOption:null, learnedThisRound:0
 };
 
-var lpTimer = null, lpDismissTimer = null, lpIso = null, lpStartX = 0, lpStartY = 0;
+var lpTimer = null, lpDismissTimer = null, lpIso = null, lpPointerId = null, lpStartX = 0, lpStartY = 0;
 
 function shuffle(arr) {
   var a = arr.slice();
@@ -926,7 +926,7 @@ function getRepeatTargetIso(e) {
 }
 
 function executeRepeatAnswer(iso) {
-  if (state.answered) return;
+  if (!iso || state.answered) return;
   dismissTooltip();
   var mapContainer = document.getElementById('mapContainer');
   var el = mapContainer ? mapContainer.querySelector('[data-iso="' + iso + '"]') : null;
@@ -956,9 +956,11 @@ function executeRepeatAnswer(iso) {
 
 function handleRepeatPointerDown(e) {
   if (state.mode !== 'repeat' || state.answered) return;
+  if (lpPointerId !== null) return;
   var iso = getRepeatTargetIso(e);
   if (!iso) return;
   e.currentTarget.setPointerCapture(e.pointerId);
+  lpPointerId = e.pointerId;
   lpIso = iso;
   lpStartX = e.clientX;
   lpStartY = e.clientY;
@@ -974,13 +976,15 @@ function handleRepeatPointerDown(e) {
 }
 
 function handleRepeatPointerUp(e) {
+  if (e.pointerId !== lpPointerId) return;
+  lpPointerId = null;
   if (lpTimer !== null) { clearTimeout(lpTimer); lpTimer = null; }
   lpIso = null;
   scheduleDismissTooltip(1000);
 }
 
 function handleRepeatPointerMove(e) {
-  if (lpTimer === null) return;
+  if (e.pointerId !== lpPointerId || lpTimer === null) return;
   var dx = e.clientX - lpStartX, dy = e.clientY - lpStartY;
   if (Math.sqrt(dx * dx + dy * dy) > 12) {
     clearTimeout(lpTimer);
@@ -990,6 +994,8 @@ function handleRepeatPointerMove(e) {
 }
 
 function handleRepeatPointerCancel(e) {
+  if (e.pointerId !== lpPointerId) return;
+  lpPointerId = null;
   if (lpTimer !== null) { clearTimeout(lpTimer); lpTimer = null; }
   lpIso = null;
   scheduleDismissTooltip(1000);
