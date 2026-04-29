@@ -916,7 +916,6 @@ function getRepeatTargetIso(e) {
 function executeRepeatAnswer(iso) {
   if (state.answered) return;
   dismissTooltip();
-  if (navigator.vibrate) navigator.vibrate(50);
   var mapContainer = document.getElementById('mapContainer');
   var el = mapContainer ? mapContainer.querySelector('[data-iso="' + iso + '"]') : null;
   if (el) {
@@ -926,6 +925,7 @@ function executeRepeatAnswer(iso) {
   playClick();
   var q = state.questions[state.currentQ];
   var isCorrect = iso === q.answer;
+  if (navigator.vibrate) navigator.vibrate(isCorrect ? 50 : 200);
   var clickedData = null;
   for (var i = 0; i < DATA.length; i++) {
     if (DATA[i].iso === iso) { clickedData = DATA[i]; break; }
@@ -1028,6 +1028,7 @@ function handleMapClick(e) {
     correctAnswer: q.item.country,
     item: q.item
   });
+  if (navigator.vibrate && !isCorrect) navigator.vibrate(200);
   var learned = recordAnswer(q.item.iso, isCorrect);
   if (learned && state.mode === 'repeat') state.learnedThisRound++;
   render();
@@ -1043,6 +1044,7 @@ function selectOption(opt) {
     question: q.question, correct: opt === q.answer,
     userAnswer: opt, correctAnswer: q.answer, item: q.item
   });
+  if (navigator.vibrate && opt !== q.answer) navigator.vibrate(200);
   recordAnswer(q.item.iso, opt === q.answer);
   render();
 }
