@@ -239,6 +239,17 @@ h1 {
   .question-header { flex-wrap: wrap; gap: 6px; }
   .results-list { margin-top: 14px; }
   .result-item { padding: 12px 14px; gap: 10px; }
+  /* Compact quiz layout — wszystko musi zmieścić się bez scrollowania */
+  .quiz-map-panel { padding: 0 16px 6px; }
+  .quiz-map-panel svg { max-height: 150px; }
+  #qp-top .container { padding: 10px 16px; }
+  #qp-top .question-header { margin-bottom: 12px; }
+  #qp-top .progress-bar { margin-bottom: 10px; }
+  #qp-top .q-text { font-size: 1.05rem; margin-bottom: 12px; }
+  #qp-top .options-grid { gap: 7px; }
+  #qp-top .option-btn { padding: 10px 14px; min-height: 44px; font-size: 0.95rem; }
+  #qp-btns .container { padding: 4px 16px 6px; }
+  #qp-btns .abort-row { margin-top: 10px; padding-top: 10px; }
 }
 
 /* Touch device tweaks: disable hover-based highlights that "stick" after tap */
