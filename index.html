@@ -234,7 +234,6 @@ h1 {
 .stat-number { font-family: Georgia, serif; font-size: 2.5rem; font-weight: 900; }
 .stat-label { color: var(--text2); font-size: 0.85rem; margin-top: 4px; }
 .next-btn-area { text-align: center; margin-top: 20px; }
-.abort-row { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px dashed var(--border); }
 .quiz-map-panel { max-width: 800px; margin: 0 auto; padding: 0 20px 16px; }
 .quiz-map-panel svg { width: 100%; height: auto; display: block; border-radius: 12px; border: 2px solid var(--border); background: #f5f1e8; padding: 8px; }
 .quiz-map-panel .country { fill: #fafaf6; stroke: #6b6358; stroke-width: 1.0; cursor: default; transition: fill 0.3s; }
@@ -245,15 +244,32 @@ h1 {
 .btn-abort {
   background: transparent;
   color: var(--text2);
-  border: 1px solid var(--border);
-  padding: 8px 18px;
+  border: 1px solid transparent;
+  padding: 6px 14px;
   border-radius: 8px;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   cursor: pointer;
   font-family: 'Segoe UI', Tahoma, sans-serif;
-  transition: all 0.2s;
+  transition: color 0.2s, border-color 0.2s;
+  opacity: 0.55;
+  position: relative;
+  overflow: hidden;
 }
-.btn-abort:hover { color: var(--red); border-color: var(--red); }
+.btn-abort:hover { color: var(--text2); border-color: transparent; opacity: 0.75; }
+.btn-abort.abort-holding { opacity: 1; color: var(--red); border-color: var(--red); }
+.btn-abort-progress {
+  position: absolute;
+  left: 0; bottom: 0;
+  height: 3px;
+  width: 0%;
+  background: var(--red);
+  transition: none;
+}
+.btn-abort.abort-holding .btn-abort-progress {
+  width: 100%;
+  transition: width 1.5s linear;
+}
+.abort-row { text-align: center; margin-top: 44px; padding-top: 18px; }
 @media (max-width: 600px) {
   body { padding: 12px; }
   .container { padding: 18px 16px; border-radius: 14px; }
@@ -671,6 +687,37 @@ function abortGame() {
   render();
 }
 
+function bindAbortBtn(btn) {
+  var holdTimer = null;
+  function cancel() {
+    if (!holdTimer) return;
+    clearTimeout(holdTimer);
+    holdTimer = null;
+    btn.classList.remove('abort-holding');
+    var bar = btn.querySelector('.btn-abort-progress');
+    if (bar) { bar.style.transition = 'none'; bar.style.width = '0%'; }
+  }
+  btn.addEventListener('pointerdown', function(e) {
+    if (e.button !== undefined && e.button !== 0) return;
+    btn.classList.add('abort-holding');
+    var bar = btn.querySelector('.btn-abort-progress');
+    if (bar) {
+      bar.style.transition = 'none';
+      bar.style.width = '0%';
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          bar.style.transition = 'width 1.5s linear';
+          bar.style.width = '100%';
+        });
+      });
+    }
+    holdTimer = setTimeout(function() { holdTimer = null; abortGame(); }, 1500);
+  });
+  btn.addEventListener('pointerup', cancel);
+  btn.addEventListener('pointerleave', cancel);
+  btn.addEventListener('pointercancel', cancel);
+}
+
 function getIsoFromAnswer(answer, mode) {
   for (var i = 0; i < DATA.length; i++) {
     if (mode === 'countries' && DATA[i].country === answer) return DATA[i].iso;
@@ -747,7 +794,7 @@ function renderQuestion(app) {
     if (state.answered) {
       btnsHtml += '<div class="next-btn-area"><button class="btn btn-primary" id="nextBtn">Nast\u0119pne pytanie \u279C</button></div>';
     }
-    btnsHtml += '<div class="abort-row"><button class="btn-abort" id="abortBtn">\u2715 Przerywam rund\u0119</button></div></div>';
+    btnsHtml += '<div class="abort-row"><button class="btn-abort" id="abortBtn">\u2715 Przerywam rund\u0119<span class="btn-abort-progress"></span></button></div></div>';
     document.getElementById('qp-btns').innerHTML = btnsHtml;
 
     if (!state.answered) {
@@ -763,7 +810,7 @@ function renderQuestion(app) {
     var nextBtn = document.getElementById("nextBtn");
     if (nextBtn) nextBtn.addEventListener("click", nextQuestion);
     var abortBtn = document.getElementById("abortBtn");
-    if (abortBtn) abortBtn.addEventListener("click", abortGame);
+    if (abortBtn) bindAbortBtn(abortBtn);
     return;
   }
 
@@ -845,13 +892,13 @@ function renderQuestion(app) {
   if (state.answered) {
     btnsHtml += '<div class="next-btn-area"><button class="btn btn-primary" id="nextBtn">Nast\u0119pne pytanie \u279C</button></div>';
   }
-  btnsHtml += '<div class="abort-row"><button class="btn-abort" id="abortBtn">\u2715 Przerywam rund\u0119</button></div></div>';
+  btnsHtml += '<div class="abort-row"><button class="btn-abort" id="abortBtn">\u2715 Przerywam rund\u0119<span class="btn-abort-progress"></span></button></div></div>';
   document.getElementById('qp-btns').innerHTML = btnsHtml;
 
   var nextBtn = document.getElementById('nextBtn');
   if (nextBtn) nextBtn.addEventListener('click', nextQuestion);
   var abortBtn = document.getElementById('abortBtn');
-  if (abortBtn) abortBtn.addEventListener('click', abortGame);
+  if (abortBtn) bindAbortBtn(abortBtn);
 }
 
 // Find the country whose bounding-box center is closest to the click point.
